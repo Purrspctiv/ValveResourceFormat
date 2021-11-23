@@ -7,10 +7,10 @@ using System.Linq;
 using System.Windows.Forms;
 using GUI.Types.Renderer;
 using GUI.Utils;
-using OpenTK;
-using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
-using OpenTK.Input;
+using OpenTK.Windowing.Common;
+using OpenTK.WinForms;
+using GLControl = OpenTK.WinForms.GLControl;
 
 namespace GUI.Controls
 {
@@ -39,6 +39,7 @@ namespace GUI.Controls
         long lastFpsUpdate;
         long lastUpdate;
         int frames;
+        private INativeInput NativeInput;
 
         public GLViewerControl()
         {
@@ -48,18 +49,19 @@ namespace GUI.Controls
             Camera = new Camera();
 
             // Initialize GL control
-            var flags = GraphicsContextFlags.ForwardCompatible;
+            var glSettings = new GLControlSettings
+            {
+                Flags = ContextFlags.ForwardCompatible
+            };
 
 #if DEBUG
-            flags |= GraphicsContextFlags.Debug;
+            glSettings.Flags |= ContextFlags.Debug;
 #endif
 
-            GLControl = new GLControl(new GraphicsMode(32, 24, 0, 8), 3, 3, flags);
+            GLControl = new GLControl(glSettings);
             GLControl.Load += OnLoad;
             GLControl.Paint += OnPaint;
             GLControl.Resize += OnResize;
-            GLControl.MouseEnter += OnMouseEnter;
-            GLControl.MouseLeave += OnMouseLeave;
             GLControl.GotFocus += OnGotFocus;
             GLControl.VisibleChanged += OnVisibleChanged;
             GLControl.Disposed += OnDisposed;
@@ -164,11 +166,16 @@ namespace GUI.Controls
             GLControl.Load -= OnLoad;
             GLControl.Paint -= OnPaint;
             GLControl.Resize -= OnResize;
-            GLControl.MouseEnter -= OnMouseEnter;
-            GLControl.MouseLeave -= OnMouseLeave;
             GLControl.GotFocus -= OnGotFocus;
             GLControl.VisibleChanged -= OnVisibleChanged;
             GLControl.Disposed -= OnDisposed;
+
+            if (NativeInput != null)
+            {
+                NativeInput.MouseEnter -= OnMouseEnter;
+                NativeInput.MouseLeave -= OnMouseLeave;
+                NativeInput = null;
+            }
         }
 
         private void OnVisibleChanged(object sender, EventArgs e)
@@ -180,12 +187,12 @@ namespace GUI.Controls
             }
         }
 
-        private void OnMouseLeave(object sender, EventArgs e)
+        private void OnMouseLeave()
         {
             Camera.MouseOverRenderArea = false;
         }
 
-        private void OnMouseEnter(object sender, EventArgs e)
+        private void OnMouseEnter()
         {
             Camera.MouseOverRenderArea = true;
         }
@@ -193,6 +200,10 @@ namespace GUI.Controls
         private void OnLoad(object sender, EventArgs e)
         {
             GLControl.MakeCurrent();
+
+            NativeInput = GLControl.EnableNativeInput();
+            NativeInput.MouseEnter += OnMouseEnter;
+            NativeInput.MouseLeave += OnMouseLeave;
 
             CheckOpenGL();
 
@@ -245,7 +256,12 @@ namespace GUI.Controls
             var frameTime = elapsed * TickFrequency / TicksPerSecond;
 
             Camera.Tick(frameTime);
-            Camera.HandleInput(Mouse.GetState(), Keyboard.GetState());
+
+            // TODO: Why are we trying to draw before its loaded
+            if (NativeInput != null)
+            {
+                Camera.HandleInput(NativeInput);
+            }
 
             GL.ClearColor(Settings.BackgroundColor);
             GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);

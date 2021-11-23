@@ -1,6 +1,6 @@
 using System.Collections.Generic;
-using OpenTK;
 using OpenTK.Graphics.OpenGL;
+using OpenTK.Mathematics;
 using ValveResourceFormat.ResourceTypes;
 
 namespace GUI.Types.Renderer
