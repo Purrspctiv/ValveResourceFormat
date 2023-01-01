@@ -5,6 +5,7 @@ using GUI.Utils;
 using OpenTK.Graphics.OpenGL;
 using ValveResourceFormat;
 using ValveResourceFormat.ResourceTypes;
+using static GUI.Types.Renderer.RenderMaterial;
 using VrfMaterial = ValveResourceFormat.ResourceTypes.Material;
 
 namespace GUI.Types.Renderer
@@ -62,16 +63,16 @@ namespace GUI.Types.Renderer
             {
                 var a = mat.Material.VectorParams["g_vColorTint"];
 
-                mat.Textures["g_tColor"] = GenerateColorTexture(1, 1, new[] { a.X, a.Y, a.Z, a.W });
+                mat.Textures["g_tColor"] = new(GenerateColorTexture(1, 1, new[] { a.X, a.Y, a.Z, a.W }), null);
             }
 
             if (!mat.Textures.ContainsKey("g_tColor"))
             {
-                mat.Textures["g_tColor"] = GetErrorTexture();
+                mat.Textures["g_tColor"] = new(GetErrorTexture(), null);
             }
 
             // Since our shaders only use g_tColor, we have to find at least one texture to use here
-            if (mat.Textures["g_tColor"] == GetErrorTexture())
+            if (mat.Textures["g_tColor"].Id == GetErrorTexture())
             {
                 var namesToTry = new[] { "g_tColor2", "g_tColor1", "g_tColorA", "g_tColorB", "g_tColorC" };
 
@@ -104,23 +105,21 @@ namespace GUI.Types.Renderer
             return mat;
         }
 
-        public int LoadTexture(string name)
+        public TextureToRender LoadTexture(string name)
         {
             var textureResource = VrfGuiContext.LoadFileByAnyMeansNecessary(name + "_c");
 
             if (textureResource == null)
             {
-                return GetErrorTexture();
+                return new(GetErrorTexture(), null);
             }
 
             return LoadTexture(textureResource);
         }
 
-        public int LoadTexture(Resource textureResource)
+        public static void LoadTexture(int id, Resource textureResource)
         {
             var tex = (Texture)textureResource.DataBlock;
-
-            var id = GL.GenTexture();
 
             GL.BindTexture(TextureTarget.Texture2D, id);
 
@@ -131,12 +130,6 @@ namespace GUI.Types.Renderer
 
             var internalFormat = GetPixelInternalFormat(tex.Format);
             var format = GetInternalFormat(tex.Format);
-
-            if (!format.HasValue && !internalFormat.HasValue)
-            {
-                Console.Error.WriteLine($"Don't support {tex.Format} but don't want to crash either. Using error texture!");
-                return GetErrorTexture();
-            }
 
             for (var i = tex.NumMipLevels - 1; i >= 0; i--)
             {
@@ -159,7 +152,7 @@ namespace GUI.Types.Renderer
 
             // Dispose texture otherwise we run out of memory
             // TODO: This might conflict when opening multiple files due to shit caching
-            textureResource.Dispose();
+            //textureResource.Dispose();
 
             if (MaxTextureMaxAnisotropy >= 4)
             {
@@ -184,8 +177,24 @@ namespace GUI.Types.Renderer
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)clampModeT);
 
             GL.BindTexture(TextureTarget.Texture2D, 0);
+        }
 
-            return id;
+        public TextureToRender LoadTexture(Resource textureResource)
+        {
+            var tex = (Texture)textureResource.DataBlock;
+
+            var internalFormat = GetPixelInternalFormat(tex.Format);
+            var format = GetInternalFormat(tex.Format);
+
+            if (!format.HasValue && !internalFormat.HasValue)
+            {
+                Console.Error.WriteLine($"Don't support {tex.Format} but don't want to crash either. Using error texture!");
+                return new(GetErrorTexture(), null);
+            }
+
+            var id = GL.GenTexture();
+
+            return new(id, textureResource);
         }
 
         private static InternalFormat? GetInternalFormat(VTexFormat vformat)
@@ -239,7 +248,7 @@ namespace GUI.Types.Renderer
         public RenderMaterial GetErrorMaterial()
         {
             var errorMat = new RenderMaterial(new VrfMaterial());
-            errorMat.Textures["g_tColor"] = GetErrorTexture();
+            errorMat.Textures["g_tColor"] = new(GetErrorTexture(), null);
             errorMat.Material.ShaderName = "vrf.error";
 
             return errorMat;

@@ -257,12 +257,12 @@ namespace GUI.Types.Renderer
 
             if (!drawCall.Material.Textures.ContainsKey("g_tTintMask"))
             {
-                drawCall.Material.Textures.Add("g_tTintMask", MaterialLoader.CreateSolidTexture(1f, 1f, 1f));
+                drawCall.Material.Textures.Add("g_tTintMask", new(MaterialLoader.CreateSolidTexture(1f, 1f, 1f), null));
             }
 
             if (!drawCall.Material.Textures.ContainsKey("g_tNormal"))
             {
-                drawCall.Material.Textures.Add("g_tNormal", MaterialLoader.CreateSolidTexture(0.5f, 1f, 0.5f));
+                drawCall.Material.Textures.Add("g_tNormal", new(MaterialLoader.CreateSolidTexture(0.5f, 1f, 0.5f), null));
             }
         }
     }

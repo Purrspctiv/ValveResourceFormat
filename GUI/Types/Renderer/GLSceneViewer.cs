@@ -131,7 +131,9 @@ namespace GUI.Types.Renderer
             ViewerControl.GLLoad -= OnLoad;
             ViewerControl.GLPaint += OnPaint;
 
-            GuiContext.ClearCache();
+
+
+            //GuiContext.ClearCache();
         }
 
         private void OnPaint(object sender, RenderEventArgs e)

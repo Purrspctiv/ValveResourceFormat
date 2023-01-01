@@ -1,14 +1,27 @@
 using System.Collections.Generic;
 using OpenTK;
 using OpenTK.Graphics.OpenGL;
+using ValveResourceFormat;
 using ValveResourceFormat.ResourceTypes;
 
 namespace GUI.Types.Renderer
 {
     public class RenderMaterial
     {
+        public class TextureToRender
+        {
+            public int Id { get; }
+            public Resource Resource { get; set; }
+
+            public TextureToRender(int id, Resource resource)
+            {
+                Id = id;
+                Resource = resource;
+            }
+        }
+
         public Material Material { get; }
-        public Dictionary<string, int> Textures { get; } = new Dictionary<string, int>();
+        public Dictionary<string, TextureToRender> Textures { get; } = new();
         public bool IsBlended { get; }
         public bool IsToolsMaterial { get; }
 
@@ -48,8 +61,17 @@ namespace GUI.Types.Renderer
 
                 if (uniformLocation > -1)
                 {
+                    if (texture.Value.Resource != null)
+                    {
+                        var test = texture.Value;
+                        System.Console.WriteLine($"Loading texture {test.Id}");
+                        MaterialLoader.LoadTexture(test.Id, test.Resource);
+
+                        Textures[texture.Key].Resource = null;
+                    }
+
                     GL.ActiveTexture(TextureUnit.Texture0 + textureUnit);
-                    GL.BindTexture(TextureTarget.Texture2D, texture.Value);
+                    GL.BindTexture(TextureTarget.Texture2D, texture.Value.Id);
                     GL.Uniform1(uniformLocation, textureUnit);
 
                     textureUnit++;

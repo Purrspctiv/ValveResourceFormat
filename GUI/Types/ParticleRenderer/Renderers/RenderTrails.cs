@@ -123,7 +123,10 @@ namespace GUI.Types.ParticleRenderer.Renderers
                 return (vrfGuiContext.MaterialLoader.GetErrorTexture(), null);
             }
 
-            return (vrfGuiContext.MaterialLoader.LoadTexture(textureName), (Texture)textureResource.DataBlock);
+            var texture = vrfGuiContext.MaterialLoader.LoadTexture(textureName);
+            MaterialLoader.LoadTexture(texture.Id, texture.Resource);
+
+            return (texture.Id, (Texture)textureResource.DataBlock);
         }
 
         public void Render(ParticleBag particleBag, Matrix4x4 viewProjectionMatrix, Matrix4x4 modelViewMatrix)
