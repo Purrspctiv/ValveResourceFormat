@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using GUI.Utils;
+using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
 
 namespace GUI.Types.Renderer
@@ -62,9 +63,9 @@ namespace GUI.Types.Renderer
 
                 GL.UseProgram(shader.Program);
 
-                GL.Uniform3(shader.GetUniformLocation("vLightPosition"), lightPosition);
-                GL.Uniform3(shader.GetUniformLocation("vEyePosition"), cameraPosition);
-                GL.UniformMatrix4(shader.GetUniformLocation("uProjectionViewMatrix"), false, ref viewProjectionMatrix);
+                GL.Uniform3f(shader.GetUniformLocation("vLightPosition"), lightPosition);
+                GL.Uniform3f(shader.GetUniformLocation("vEyePosition"), cameraPosition);
+                GL.UniformMatrix4f(shader.GetUniformLocation("uProjectionViewMatrix"), false, viewProjectionMatrix);
 
                 foreach (var materialGroup in shaderGroup.GroupBy(a => a.Call.Material))
                 {
@@ -80,44 +81,44 @@ namespace GUI.Types.Renderer
                     foreach (var request in materialGroup)
                     {
                         var transformTk = request.Transform.ToOpenTK();
-                        GL.UniformMatrix4(uniformLocationTransform, false, ref transformTk);
+                        GL.UniformMatrix4f(uniformLocationTransform, false, transformTk);
 
                         if (uniformLocationTime != 1)
                         {
-                            GL.Uniform1(uniformLocationTime, request.Mesh.Time);
+                            GL.Uniform1f(uniformLocationTime, request.Mesh.Time);
                         }
 
                         if (uniformLocationAnimated != -1)
                         {
-                            GL.Uniform1(uniformLocationAnimated, request.Mesh.AnimationTexture.HasValue ? 1.0f : 0.0f);
+                            GL.Uniform1f(uniformLocationAnimated, request.Mesh.AnimationTexture != TextureHandle.Zero ? 1.0f : 0.0f);
                         }
 
                         //Push animation texture to the shader (if it supports it)
-                        if (request.Mesh.AnimationTexture.HasValue)
+                        if (request.Mesh.AnimationTexture != TextureHandle.Zero)
                         {
                             if (uniformLocationAnimationTexture != -1)
                             {
                                 GL.ActiveTexture(TextureUnit.Texture0);
-                                GL.BindTexture(TextureTarget.Texture2D, request.Mesh.AnimationTexture.Value);
-                                GL.Uniform1(uniformLocationAnimationTexture, 0);
+                                GL.BindTexture(TextureTarget.Texture2d, request.Mesh.AnimationTexture);
+                                GL.Uniform1i(uniformLocationAnimationTexture, 0);
                             }
 
                             if (uniformLocationNumBones != -1)
                             {
                                 var v = (float)Math.Max(1, request.Mesh.AnimationTextureSize - 1);
-                                GL.Uniform1(uniformLocationNumBones, v);
+                                GL.Uniform1f(uniformLocationNumBones, v);
                             }
                         }
 
                         if (uniformLocationTint > -1)
                         {
                             var tint = request.Mesh.Tint.ToOpenTK();
-                            GL.Uniform4(uniformLocationTint, tint);
+                            GL.Uniform4f(uniformLocationTint, tint);
                         }
 
                         if (uniformLocationTintDrawCall > -1)
                         {
-                            GL.Uniform3(uniformLocationTintDrawCall, request.Call.TintColor);
+                            GL.Uniform3f(uniformLocationTintDrawCall, request.Call.TintColor);
                         }
 
                         GL.BindVertexArray(request.Call.VertexArrayObject);

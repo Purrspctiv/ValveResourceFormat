@@ -66,7 +66,7 @@ namespace GUI.Types.Renderer
 
             GL.CompileShader(vertexShader);
 
-            GL.GetShader(vertexShader, ShaderParameter.CompileStatus, out var shaderStatus);
+            GL.GetShaderi(vertexShader, ShaderParameterName.CompileStatus, out var shaderStatus);
 
             if (shaderStatus != 1)
             {
@@ -94,7 +94,7 @@ namespace GUI.Types.Renderer
 
             GL.CompileShader(fragmentShader);
 
-            GL.GetShader(fragmentShader, ShaderParameter.CompileStatus, out shaderStatus);
+            GL.GetShaderi(fragmentShader, ShaderParameterName.CompileStatus, out shaderStatus);
 
             if (shaderStatus != 1)
             {
@@ -120,7 +120,7 @@ namespace GUI.Types.Renderer
             GL.AttachShader(shader.Program, fragmentShader);
 
             GL.LinkProgram(shader.Program);
-            GL.GetProgram(shader.Program, GetProgramParameterName.LinkStatus, out var linkStatus);
+            GL.GetProgrami(shader.Program, ProgramPropertyARB.LinkStatus, out var linkStatus);
 
             if (linkStatus != 1)
             {
@@ -129,7 +129,7 @@ namespace GUI.Types.Renderer
             }
 
             GL.ValidateProgram(shader.Program);
-            GL.GetProgram(shader.Program, GetProgramParameterName.ValidateStatus, out var validateStatus);
+            GL.GetProgrami(shader.Program, ProgramPropertyARB.ValidateStatus, out var validateStatus);
 
             if (validateStatus != 1)
             {

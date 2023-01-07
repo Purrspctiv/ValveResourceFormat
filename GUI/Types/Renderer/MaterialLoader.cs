@@ -3,6 +3,7 @@ using System.Buffers;
 using System.Collections.Generic;
 using System.Numerics;
 using GUI.Utils;
+using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
 using ValveResourceFormat;
 using ValveResourceFormat.ResourceTypes;
@@ -14,7 +15,7 @@ namespace GUI.Types.Renderer
     {
         private readonly Dictionary<string, RenderMaterial> Materials = new();
         private readonly VrfGuiContext VrfGuiContext;
-        private int ErrorTextureID;
+        private TextureHandle ErrorTextureID = TextureHandle.Zero;
         public static int MaxTextureMaxAnisotropy { get; set; }
 
         public MaterialLoader(VrfGuiContext guiContext)
@@ -105,7 +106,7 @@ namespace GUI.Types.Renderer
             return mat;
         }
 
-        public int LoadTexture(string name)
+        public TextureHandle LoadTexture(string name)
         {
             var textureResource = VrfGuiContext.LoadFileByAnyMeansNecessary(name + "_c");
 
@@ -117,14 +118,14 @@ namespace GUI.Types.Renderer
             return LoadTexture(textureResource);
         }
 
-        public int LoadTexture(Resource textureResource)
+        public TextureHandle LoadTexture(Resource textureResource)
         {
             var tex = (Texture)textureResource.DataBlock;
 
             var id = GL.GenTexture();
 
-            GL.BindTexture(TextureTarget.Texture2D, id);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMaxLevel, tex.NumMipLevels - 1);
+            GL.BindTexture(TextureTarget.Texture2d, id);
+            GL.TexParameteri(TextureTarget.Texture2d, TextureParameterName.TextureMaxLevel, tex.NumMipLevels - 1);
 
             var internalFormat = GetPixelInternalFormat(tex.Format);
             var format = GetInternalFormat(tex.Format);
@@ -146,11 +147,11 @@ namespace GUI.Types.Renderer
                         var pixelFormat = GetPixelFormat(tex.Format);
                         var pixelType = GetPixelType(tex.Format);
 
-                        GL.TexImage2D(TextureTarget.Texture2D, i, internalFormat.Value, width, height, 0, pixelFormat, pixelType, buffer);
+                        GL.TexImage2D(TextureTarget.Texture2d, i, internalFormat.Value, width, height, 0, pixelFormat, pixelType, buffer);
                     }
                     else
                     {
-                        GL.CompressedTexImage2D(TextureTarget.Texture2D, i, format.Value, width, height, 0, bufferSize, buffer);
+                        GL.CompressedTexImage2D(TextureTarget.Texture2d, i, format.Value, width, height, 0, bufferSize, buffer);
                     }
                 }
             }
@@ -165,14 +166,14 @@ namespace GUI.Types.Renderer
 
             if (MaxTextureMaxAnisotropy >= 4)
             {
-                GL.TexParameter(TextureTarget.Texture2D, (TextureParameterName)ExtTextureFilterAnisotropic.TextureMaxAnisotropyExt, MaxTextureMaxAnisotropy);
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.LinearMipmapLinear);
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
+                GL.TexParameteri(TextureTarget.Texture2d, TextureParameterName.TextureMaxAnisotropy, MaxTextureMaxAnisotropy);
+                GL.TexParameteri(TextureTarget.Texture2d, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.LinearMipmapLinear);
+                GL.TexParameteri(TextureTarget.Texture2d, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
             }
             else
             {
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
+                GL.TexParameteri(TextureTarget.Texture2d, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
+                GL.TexParameteri(TextureTarget.Texture2d, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
             }
 
             var clampModeS = tex.Flags.HasFlag(VTexFlags.SUGGEST_CLAMPS)
@@ -182,10 +183,10 @@ namespace GUI.Types.Renderer
                 ? TextureWrapMode.Clamp
                 : TextureWrapMode.Repeat;
 
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)clampModeS);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)clampModeT);
+            GL.TexParameteri(TextureTarget.Texture2d, TextureParameterName.TextureWrapS, (int)clampModeS);
+            GL.TexParameteri(TextureTarget.Texture2d, TextureParameterName.TextureWrapT, (int)clampModeT);
 
-            GL.BindTexture(TextureTarget.Texture2D, 0);
+            GL.BindTexture(TextureTarget.Texture2d, TextureHandle.Zero);
 
             return id;
         }
@@ -207,13 +208,13 @@ namespace GUI.Types.Renderer
                 _ => null // Unsupported texture format
             };
 
-        private static PixelInternalFormat? GetPixelInternalFormat(VTexFormat vformat)
+        private static InternalFormat? GetPixelInternalFormat(VTexFormat vformat)
             => vformat switch
             {
-                VTexFormat.R16 => PixelInternalFormat.R16,
-                VTexFormat.R16F => PixelInternalFormat.R16f,
-                VTexFormat.RG1616 => PixelInternalFormat.Rg16,
-                VTexFormat.RG1616F => PixelInternalFormat.Rg16f,
+                VTexFormat.R16 => InternalFormat.R16,
+                VTexFormat.R16F => InternalFormat.R16f,
+                VTexFormat.RG1616 => InternalFormat.Rg16,
+                VTexFormat.RG1616F => InternalFormat.Rg16f,
                 _ => null // Unsupported texture format
             };
 
@@ -248,9 +249,9 @@ namespace GUI.Types.Renderer
         }
 
 
-        public int GetErrorTexture()
+        public TextureHandle GetErrorTexture()
         {
-            if (ErrorTextureID == 0)
+            if (ErrorTextureID == TextureHandle.Zero)
             {
                 var color = new[]
                 {
@@ -281,22 +282,22 @@ namespace GUI.Types.Renderer
             return ErrorTextureID;
         }
 
-        public static int CreateSolidTexture(float r, float g, float b)
+        public static TextureHandle CreateSolidTexture(float r, float g, float b)
             => GenerateColorTexture(1, 1, new[] { r, g, b, 1f });
 
-        private static int GenerateColorTexture(int width, int height, float[] color)
+        private static TextureHandle GenerateColorTexture(int width, int height, float[] color)
         {
             var texture = GL.GenTexture();
 
-            GL.BindTexture(TextureTarget.Texture2D, texture);
-            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba32f, width, height, 0, PixelFormat.Rgba, PixelType.Float, color);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMaxLevel, 0);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.Repeat);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Repeat);
+            GL.BindTexture(TextureTarget.Texture2d, texture);
+            GL.TexImage2D(TextureTarget.Texture2d, 0, InternalFormat.Rgba32f, width, height, 0, PixelFormat.Rgba, PixelType.Float, color);
+            GL.TexParameteri(TextureTarget.Texture2d, TextureParameterName.TextureMaxLevel, 0);
+            GL.TexParameteri(TextureTarget.Texture2d, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
+            GL.TexParameteri(TextureTarget.Texture2d, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
+            GL.TexParameteri(TextureTarget.Texture2d, TextureParameterName.TextureWrapS, (int)TextureWrapMode.Repeat);
+            GL.TexParameteri(TextureTarget.Texture2d, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Repeat);
 
-            GL.BindTexture(TextureTarget.Texture2D, 0);
+            GL.BindTexture(TextureTarget.Texture2d, TextureHandle.Zero);
 
             return texture;
         }

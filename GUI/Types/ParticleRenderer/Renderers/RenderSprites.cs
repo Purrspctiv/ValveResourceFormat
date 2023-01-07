@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Numerics;
 using GUI.Types.Renderer;
 using GUI.Utils;
+using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
 using ValveResourceFormat.ResourceTypes;
 using ValveResourceFormat.Serialization;
@@ -16,8 +17,8 @@ namespace GUI.Types.ParticleRenderer.Renderers
 
         private Shader shader;
         private readonly VrfGuiContext guiContext;
-        private readonly int quadVao;
-        private readonly int glTexture;
+        private readonly VertexArrayHandle quadVao;
+        private readonly TextureHandle glTexture;
 
         private readonly Texture.SpritesheetData spriteSheetData;
         private readonly float animationRate = 0.1f;
@@ -28,7 +29,7 @@ namespace GUI.Types.ParticleRenderer.Renderers
 
         private float[] rawVertices;
         private readonly QuadIndexBuffer quadIndices;
-        private int vertexBufferHandle;
+        private BufferHandle vertexBufferHandle;
 
         public RenderSprites(IKeyValueCollection keyValues, VrfGuiContext vrfGuiContext)
         {
@@ -91,7 +92,7 @@ namespace GUI.Types.ParticleRenderer.Renderers
             }
         }
 
-        private int SetupQuadBuffer()
+        private VertexArrayHandle SetupQuadBuffer()
         {
             GL.UseProgram(shader.Program);
 
@@ -100,7 +101,7 @@ namespace GUI.Types.ParticleRenderer.Renderers
             GL.BindVertexArray(vao);
 
             vertexBufferHandle = GL.GenBuffer();
-            GL.BindBuffer(BufferTarget.ArrayBuffer, vertexBufferHandle);
+            GL.BindBuffer(BufferTargetARB.ArrayBuffer, vertexBufferHandle);
 
             var stride = sizeof(float) * VertexSize;
             var positionAttributeLocation = GL.GetAttribLocation(shader.Program, "aVertexPosition");
@@ -114,12 +115,12 @@ namespace GUI.Types.ParticleRenderer.Renderers
             GL.EnableVertexAttribArray(colorAttributeLocation);
             GL.EnableVertexAttribArray(uvAttributeLocation);
 
-            GL.BindVertexArray(0);
+            GL.BindVertexArray(VertexArrayHandle.Zero);
 
             return vao;
         }
 
-        private static (int TextureIndex, Texture TextureData) LoadTexture(string textureName, VrfGuiContext vrfGuiContext)
+        private static (TextureHandle TextureIndex, Texture TextureData) LoadTexture(string textureName, VrfGuiContext vrfGuiContext)
         {
             var textureResource = vrfGuiContext.LoadFileByAnyMeansNecessary(textureName + "_c");
 
@@ -231,8 +232,8 @@ namespace GUI.Types.ParticleRenderer.Renderers
                 }
             }
 
-            GL.BindBuffer(BufferTarget.ArrayBuffer, vertexBufferHandle);
-            GL.BufferData(BufferTarget.ArrayBuffer, particleBag.Count * VertexSize * 4 * sizeof(float), rawVertices, BufferUsageHint.DynamicDraw);
+            GL.BindBuffer(BufferTargetARB.ArrayBuffer, vertexBufferHandle);
+            GL.BufferData(BufferTargetARB.ArrayBuffer, rawVertices, BufferUsageARB.DynamicDraw);
         }
 
         public void Render(ParticleBag particleBag, Matrix4x4 viewProjectionMatrix, Matrix4x4 modelViewMatrix)
@@ -262,37 +263,37 @@ namespace GUI.Types.ParticleRenderer.Renderers
             GL.EnableVertexAttribArray(0);
 
             GL.ActiveTexture(TextureUnit.Texture0);
-            GL.BindTexture(TextureTarget.Texture2D, glTexture);
+            GL.BindTexture(TextureTarget.Texture2d, glTexture);
 
-            GL.BindBuffer(BufferTarget.ArrayBuffer, vertexBufferHandle);
+            GL.BindBuffer(BufferTargetARB.ArrayBuffer, vertexBufferHandle);
 
-            GL.Uniform1(shader.GetUniformLocation("uTexture"), 0); // set texture unit 0 as uTexture uniform
+            GL.Uniform1i(shader.GetUniformLocation("uTexture"), 0); // set texture unit 0 as uTexture uniform
 
             var otkProjection = viewProjectionMatrix.ToOpenTK();
-            GL.UniformMatrix4(shader.GetUniformLocation("uProjectionViewMatrix"), false, ref otkProjection);
+            GL.UniformMatrix4f(shader.GetUniformLocation("uProjectionViewMatrix"), false, otkProjection);
 
             // TODO: This formula is a guess but still seems too bright compared to valve particles
-            GL.Uniform1(shader.GetUniformLocation("uOverbrightFactor"), overbrightFactor.NextNumber());
+            GL.Uniform1d(shader.GetUniformLocation("uOverbrightFactor"), overbrightFactor.NextNumber());
 
             GL.Disable(EnableCap.CullFace);
             GL.Enable(EnableCap.DepthTest);
             GL.DepthMask(false);
 
-            GL.BindBuffer(BufferTarget.ElementArrayBuffer, quadIndices.GLHandle);
-            GL.DrawElements(BeginMode.Triangles, particleBag.Count * 6, DrawElementsType.UnsignedShort, 0);
-            GL.BindBuffer(BufferTarget.ElementArrayBuffer, 0);
-            GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
+            GL.BindBuffer(BufferTargetARB.ElementArrayBuffer, quadIndices.GLHandle);
+            GL.DrawElements(PrimitiveType.Triangles, particleBag.Count * 6, DrawElementsType.UnsignedShort, 0);
+            GL.BindBuffer(BufferTargetARB.ElementArrayBuffer, BufferHandle.Zero);
+            GL.BindBuffer(BufferTargetARB.ArrayBuffer, BufferHandle.Zero);
 
             GL.Enable(EnableCap.CullFace);
             GL.Disable(EnableCap.DepthTest);
             GL.DepthMask(true);
 
-            GL.BindVertexArray(0);
-            GL.UseProgram(0);
+            GL.BindVertexArray(VertexArrayHandle.Zero);
+            GL.UseProgram(ProgramHandle.Zero);
 
             if (additive)
             {
-                GL.BlendEquation(BlendEquationMode.FuncAdd);
+                GL.BlendEquation(BlendEquationModeEXT.FuncAdd);
             }
 
             GL.Disable(EnableCap.Blend);

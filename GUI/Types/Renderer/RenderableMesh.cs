@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Numerics;
 using GUI.Utils;
+using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
 using ValveResourceFormat;
 using ValveResourceFormat.Blocks;
@@ -21,7 +22,7 @@ namespace GUI.Types.Renderer
         private readonly VrfGuiContext guiContext;
         public List<DrawCall> DrawCallsOpaque { get; } = new List<DrawCall>();
         public List<DrawCall> DrawCallsBlended { get; } = new List<DrawCall>();
-        public int? AnimationTexture { get; private set; }
+        public TextureHandle AnimationTexture { get; private set; } = TextureHandle.Zero;
         public int AnimationTextureSize { get; private set; }
 
         public float Time { get; private set; }
@@ -80,7 +81,7 @@ namespace GUI.Types.Renderer
             }
         }
 
-        public void SetAnimationTexture(int? texture, int animationTextureSize)
+        public void SetAnimationTexture(TextureHandle texture, int animationTextureSize)
         {
             AnimationTexture = texture;
             AnimationTextureSize = animationTextureSize;

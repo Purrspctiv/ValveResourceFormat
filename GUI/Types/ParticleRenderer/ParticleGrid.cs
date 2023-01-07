@@ -2,13 +2,14 @@ using System.Collections.Generic;
 using System.Numerics;
 using GUI.Types.Renderer;
 using GUI.Utils;
+using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
 
 namespace GUI.Types.ParticleRenderer
 {
     internal class ParticleGrid : IRenderer
     {
-        private readonly int vao;
+        private readonly VertexArrayHandle vao;
         private readonly Shader shader;
 
         private readonly int vertexCount;
@@ -35,9 +36,9 @@ namespace GUI.Types.ParticleRenderer
             GL.BindVertexArray(vao);
 
             var vbo = GL.GenBuffer();
-            GL.BindBuffer(BufferTarget.ArrayBuffer, vbo);
+            GL.BindBuffer(BufferTargetARB.ArrayBuffer, vbo);
 
-            GL.BufferData(BufferTarget.ArrayBuffer, vertices.Length * sizeof(float), vertices, BufferUsageHint.StaticDraw);
+            GL.BufferData(BufferTargetARB.ArrayBuffer, vertices, BufferUsageARB.StaticDraw);
 
             GL.EnableVertexAttribArray(0);
 
@@ -49,8 +50,8 @@ namespace GUI.Types.ParticleRenderer
             GL.EnableVertexAttribArray(colorAttributeLocation);
             GL.VertexAttribPointer(colorAttributeLocation, 4, VertexAttribPointerType.Float, false, stride, sizeof(float) * 3);
 
-            GL.BindVertexArray(0); // Unbind VAO
-            GL.UseProgram(0);
+            GL.BindVertexArray(VertexArrayHandle.Zero);
+            GL.UseProgram(ProgramHandle.Zero);
         }
 
         public void Update(float frameTime)
@@ -66,15 +67,15 @@ namespace GUI.Types.ParticleRenderer
             GL.UseProgram(shader.Program);
 
             var projectionViewMatrix = camera.ViewProjectionMatrix.ToOpenTK();
-            GL.UniformMatrix4(shader.GetUniformLocation("uProjectionViewMatrix"), false, ref projectionViewMatrix);
+            GL.UniformMatrix4f(shader.GetUniformLocation("uProjectionViewMatrix"), false, projectionViewMatrix);
 
             GL.BindVertexArray(vao);
             GL.EnableVertexAttribArray(0);
 
             GL.DrawArrays(PrimitiveType.Lines, 0, vertexCount);
 
-            GL.BindVertexArray(0);
-            GL.UseProgram(0);
+            GL.BindVertexArray(VertexArrayHandle.Zero);
+            GL.UseProgram(ProgramHandle.Zero);
             GL.Disable(EnableCap.Blend);
         }
 

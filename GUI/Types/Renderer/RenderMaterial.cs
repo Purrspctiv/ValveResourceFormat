@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
 using ValveResourceFormat.ResourceTypes;
@@ -8,7 +9,7 @@ namespace GUI.Types.Renderer
     public class RenderMaterial
     {
         public Material Material { get; }
-        public Dictionary<string, int> Textures { get; } = new Dictionary<string, int>();
+        public Dictionary<string, TextureHandle> Textures { get; } = new Dictionary<string, TextureHandle>();
         public bool IsBlended { get; }
         public bool IsToolsMaterial { get; }
 
@@ -48,9 +49,9 @@ namespace GUI.Types.Renderer
 
                 if (uniformLocation > -1)
                 {
-                    GL.ActiveTexture(TextureUnit.Texture0 + textureUnit);
-                    GL.BindTexture(TextureTarget.Texture2D, texture.Value);
-                    GL.Uniform1(uniformLocation, textureUnit);
+                    GL.ActiveTexture((TextureUnit)((int)TextureUnit.Texture0 + textureUnit));
+                    GL.BindTexture(TextureTarget.Texture2d, texture.Value);
+                    GL.Uniform1i(uniformLocation, textureUnit);
 
                     textureUnit++;
                 }
@@ -62,7 +63,7 @@ namespace GUI.Types.Renderer
 
                 if (uniformLocation > -1)
                 {
-                    GL.Uniform1(uniformLocation, param.Value);
+                    GL.Uniform1f(uniformLocation, param.Value);
                 }
             }
 
@@ -72,7 +73,7 @@ namespace GUI.Types.Renderer
 
                 if (uniformLocation > -1)
                 {
-                    GL.Uniform4(uniformLocation, new Vector4(param.Value.X, param.Value.Y, param.Value.Z, param.Value.W));
+                    GL.Uniform4f(uniformLocation, new Vector4(param.Value.X, param.Value.Y, param.Value.Z, param.Value.W));
                 }
             }
 
@@ -80,7 +81,7 @@ namespace GUI.Types.Renderer
 
             if (alphaReference > -1)
             {
-                GL.Uniform1(alphaReference, flAlphaTestReference);
+                GL.Uniform1f(alphaReference, flAlphaTestReference);
             }
 
             if (IsBlended)

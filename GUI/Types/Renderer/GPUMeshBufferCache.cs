@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
 using ValveResourceFormat;
 using ValveResourceFormat.Blocks;
@@ -9,7 +10,7 @@ namespace GUI.Types.Renderer
     public class GPUMeshBufferCache
     {
         private readonly Dictionary<VBIB, GPUMeshBuffers> gpuBuffers = new();
-        private readonly Dictionary<VAOKey, uint> vertexArrayObjects = new();
+        private readonly Dictionary<VAOKey, VertexArrayHandle> vertexArrayObjects = new();
 
         private struct VAOKey
         {
@@ -38,7 +39,7 @@ namespace GUI.Types.Renderer
             }
         }
 
-        public uint GetVertexArrayObject(VBIB vbib, Shader shader, uint vtxIndex, uint idxIndex, uint baseVertex)
+        public VertexArrayHandle GetVertexArrayObject(VBIB vbib, Shader shader, uint vtxIndex, uint idxIndex, uint baseVertex)
         {
             var gpuVbib = GetVertexIndexBuffers(vbib);
             var vaoKey = new VAOKey
@@ -56,11 +57,11 @@ namespace GUI.Types.Renderer
             }
             else
             {
-                GL.GenVertexArrays(1, out uint newVaoHandle);
+                GL.GenVertexArrays(1, out var newVaoHandle);
 
                 GL.BindVertexArray(newVaoHandle);
-                GL.BindBuffer(BufferTarget.ArrayBuffer, gpuVbib.VertexBuffers[vtxIndex].Handle);
-                GL.BindBuffer(BufferTarget.ElementArrayBuffer, gpuVbib.IndexBuffers[idxIndex].Handle);
+                GL.BindBuffer(BufferTargetARB.ArrayBuffer, gpuVbib.VertexBuffers[vtxIndex].Handle);
+                GL.BindBuffer(BufferTargetARB.ElementArrayBuffer, gpuVbib.IndexBuffers[idxIndex].Handle);
 
                 var curVertexBuffer = vbib.VertexBuffers[(int)vtxIndex];
                 var texCoordNum = 0;
@@ -81,7 +82,7 @@ namespace GUI.Types.Renderer
                     BindVertexAttrib(attribute, attributeName, shader.Program, (int)curVertexBuffer.ElementSizeInBytes, baseVertex);
                 }
 
-                GL.BindVertexArray(0);
+                GL.BindVertexArray(VertexArrayHandle.Zero);
 
                 vertexArrayObjects.Add(vaoKey, newVaoHandle);
                 return newVaoHandle;
@@ -89,7 +90,7 @@ namespace GUI.Types.Renderer
         }
 
         private static void BindVertexAttrib(VBIB.RenderInputLayoutField attribute, string attributeName,
-            int shaderProgram, int stride, uint baseVertex)
+            ProgramHandle shaderProgram, int stride, uint baseVertex)
         {
             var attributeLocation = GL.GetAttribLocation(shaderProgram, attributeName);
 
@@ -128,11 +129,11 @@ namespace GUI.Types.Renderer
                     break;
 
                 case DXGI_FORMAT.R16G16_SINT:
-                    GL.VertexAttribIPointer(attributeLocation, 2, VertexAttribIntegerType.Short, stride, (IntPtr)(baseVertex + attribute.Offset));
+                    GL.VertexAttribIPointer(attributeLocation, 2, VertexAttribIType.Short, stride, (IntPtr)(baseVertex + attribute.Offset));
                     break;
 
                 case DXGI_FORMAT.R16G16B16A16_SINT:
-                    GL.VertexAttribIPointer(attributeLocation, 4, VertexAttribIntegerType.Short, stride, (IntPtr)(baseVertex + attribute.Offset));
+                    GL.VertexAttribIPointer(attributeLocation, 4, VertexAttribIType.Short, stride, (IntPtr)(baseVertex + attribute.Offset));
                     break;
 
                 case DXGI_FORMAT.R16G16_SNORM:

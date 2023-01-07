@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using GUI.Utils;
+using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
 using ValveResourceFormat.ResourceTypes;
 using ValveResourceFormat.ResourceTypes.ModelAnimation;
@@ -39,7 +40,7 @@ namespace GUI.Types.Renderer
         private readonly List<Animation> animations = new();
         private Dictionary<string, string> skinMaterials;
 
-        private int animationTexture = -1;
+        private TextureHandle animationTexture = TextureHandle.Zero;
 
         private ICollection<string> activeMeshGroups = new HashSet<string>();
         private ICollection<RenderableMesh> activeMeshRenderers = new List<RenderableMesh>();
@@ -84,10 +85,10 @@ namespace GUI.Types.Renderer
             var animationMatrices = VectorExtensions.Flatten(matrices);
 
             // Update animation texture
-            GL.BindTexture(TextureTarget.Texture2D, animationTexture);
-            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba32f, 4, skeleton.Bones.Length, 0,
+            GL.BindTexture(TextureTarget.Texture2d, animationTexture);
+            GL.TexImage2D(TextureTarget.Texture2d, 0, InternalFormat.Rgba32f, 4, skeleton.Bones.Length, 0,
                 PixelFormat.Rgba, PixelType.Float, animationMatrices);
-            GL.BindTexture(TextureTarget.Texture2D, 0);
+            GL.BindTexture(TextureTarget.Texture2d, TextureHandle.Zero);
 
             var first = true;
             foreach (var matrix in matrices)
@@ -192,19 +193,19 @@ namespace GUI.Types.Renderer
 
         private void SetupAnimationTextures()
         {
-            if (animationTexture == -1)
+            if (animationTexture == TextureHandle.Zero)
             {
                 // Create animation texture
                 animationTexture = GL.GenTexture();
-                GL.BindTexture(TextureTarget.Texture2D, animationTexture);
+                GL.BindTexture(TextureTarget.Texture2d, animationTexture);
                 // Set clamping to edges
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.ClampToEdge);
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.ClampToEdge);
+                GL.TexParameteri(TextureTarget.Texture2d, TextureParameterName.TextureWrapS, (int)TextureWrapMode.ClampToEdge);
+                GL.TexParameteri(TextureTarget.Texture2d, TextureParameterName.TextureWrapT, (int)TextureWrapMode.ClampToEdge);
                 // Set nearest-neighbor sampling since we don't want to interpolate matrix rows
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMinFilter.Nearest);
+                GL.TexParameteri(TextureTarget.Texture2d, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
+                GL.TexParameteri(TextureTarget.Texture2d, TextureParameterName.TextureMagFilter, (int)TextureMinFilter.Nearest);
                 //Unbind texture again
-                GL.BindTexture(TextureTarget.Texture2D, 0);
+                GL.BindTexture(TextureTarget.Texture2d, TextureHandle.Zero);
             }
         }
 
@@ -228,7 +229,7 @@ namespace GUI.Types.Renderer
             {
                 foreach (var renderer in meshRenderers)
                 {
-                    renderer.SetAnimationTexture(null, 0);
+                    renderer.SetAnimationTexture(TextureHandle.Zero, 0);
                 }
             }
         }

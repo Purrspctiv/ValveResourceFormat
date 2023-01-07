@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using GUI.Utils;
+using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
 using ValveResourceFormat;
@@ -12,7 +13,7 @@ namespace GUI.Types.Renderer
     {
         private readonly RenderMaterial material;
         private readonly Shader shader;
-        private readonly int quadVao;
+        private readonly VertexArrayHandle quadVao;
 
         public AABB BoundingBox => new(-1, -1, -1, 1, 1, 1);
 
@@ -23,7 +24,7 @@ namespace GUI.Types.Renderer
             quadVao = SetupQuadBuffer();
         }
 
-        private int SetupQuadBuffer()
+        private VertexArrayHandle SetupQuadBuffer()
         {
             GL.UseProgram(shader.Program);
 
@@ -32,7 +33,7 @@ namespace GUI.Types.Renderer
             GL.BindVertexArray(vao);
 
             var vbo = GL.GenBuffer();
-            GL.BindBuffer(BufferTarget.ArrayBuffer, vbo);
+            GL.BindBuffer(BufferTargetARB.ArrayBuffer, vbo);
 
             var vertices = new[]
             {
@@ -46,7 +47,7 @@ namespace GUI.Types.Renderer
                 1.0f, 1.0f, 0.0f,    0.0f, 0.0f, 0.0f, 1.0f,   1.0f, 0.0f,   1.0f, 0.0f, 0.0f, 0.0f,   0.0f, 0.0f, 0.0f, 0.0f,   0.0f, 0.0f, 0.0f, 0.0f,
             };
 
-            GL.BufferData(BufferTarget.ArrayBuffer, vertices.Length * sizeof(float), vertices, BufferUsageHint.StaticDraw);
+            GL.BufferData(BufferTargetARB.ArrayBuffer, vertices, BufferUsageARB.StaticDraw);
 
             GL.EnableVertexAttribArray(0);
 
@@ -70,7 +71,7 @@ namespace GUI.Types.Renderer
                 offset += sizeof(float) * Size;
             }
 
-            GL.BindVertexArray(0); // Unbind VAO
+            GL.BindVertexArray(VertexArrayHandle.Zero);
 
             return vao;
         }
@@ -84,13 +85,13 @@ namespace GUI.Types.Renderer
             var uniformLocation = shader.GetUniformLocation("m_vTintColorSceneObject");
             if (uniformLocation > -1)
             {
-                GL.Uniform4(uniformLocation, Vector4.One);
+                GL.Uniform4f(uniformLocation, Vector4.One);
             }
 
             uniformLocation = shader.GetUniformLocation("m_vTintColorDrawCall");
             if (uniformLocation > -1)
             {
-                GL.Uniform3(uniformLocation, Vector3.One);
+                GL.Uniform3f(uniformLocation, Vector3.One);
             }
 
             var identity = Matrix4.Identity;
@@ -98,13 +99,13 @@ namespace GUI.Types.Renderer
             uniformLocation = shader.GetUniformLocation("uProjectionViewMatrix");
             if (uniformLocation > -1)
             {
-                GL.UniformMatrix4(uniformLocation, false, ref identity);
+                GL.UniformMatrix4f(uniformLocation, false, identity);
             }
 
             uniformLocation = shader.GetUniformLocation("transform");
             if (uniformLocation > -1)
             {
-                GL.UniformMatrix4(uniformLocation, false, ref identity);
+                GL.UniformMatrix4f(uniformLocation, false, identity);
             }
 
             material.Render(shader);
@@ -113,8 +114,8 @@ namespace GUI.Types.Renderer
 
             material.PostRender();
 
-            GL.BindVertexArray(0);
-            GL.UseProgram(0);
+            GL.BindVertexArray(VertexArrayHandle.Zero);
+            GL.UseProgram(ProgramHandle.Zero);
         }
 
         public void Update(float frameTime)

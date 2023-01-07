@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
 
 namespace GUI.Types.Renderer
@@ -6,7 +7,7 @@ namespace GUI.Types.Renderer
     public class Shader
     {
         public string Name { get; set; }
-        public int Program { get; set; }
+        public ProgramHandle Program { get; set; }
 #pragma warning disable CA2227 // Collection properties should be read only
         public IDictionary<string, bool> Parameters { get; set; }
         public List<string> RenderModes { get; set; }

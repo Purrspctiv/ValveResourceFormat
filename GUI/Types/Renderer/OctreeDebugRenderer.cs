@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Numerics;
 using GUI.Utils;
+using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
 
 namespace GUI.Types.Renderer
@@ -11,8 +12,8 @@ namespace GUI.Types.Renderer
     {
         private readonly Shader shader;
         private readonly Octree<T> octree;
-        private readonly int vaoHandle;
-        private readonly int vboHandle;
+        private readonly VertexArrayHandle vaoHandle;
+        private readonly BufferHandle vboHandle;
         private readonly bool dynamic;
         private bool built;
         private int vertexCount;
@@ -29,7 +30,7 @@ namespace GUI.Types.Renderer
 
             vaoHandle = GL.GenVertexArray();
             GL.BindVertexArray(vaoHandle);
-            GL.BindBuffer(BufferTarget.ArrayBuffer, vboHandle);
+            GL.BindBuffer(BufferTargetARB.ArrayBuffer, vboHandle);
 
             const int stride = sizeof(float) * 7;
             var positionAttributeLocation = GL.GetAttribLocation(shader.Program, "aVertexPosition");
@@ -40,7 +41,7 @@ namespace GUI.Types.Renderer
             GL.EnableVertexAttribArray(colorAttributeLocation);
             GL.VertexAttribPointer(colorAttributeLocation, 4, VertexAttribPointerType.Float, false, stride, sizeof(float) * 3);
 
-            GL.BindVertexArray(0);
+            GL.BindVertexArray(VertexArrayHandle.Zero);
         }
 
         private static void AddLine(List<float> vertices, Vector3 from, Vector3 to, float r, float g, float b, float a)
@@ -122,8 +123,8 @@ namespace GUI.Types.Renderer
             AddOctreeNode(vertices, octree.Root, 0);
             vertexCount = vertices.Count / 7;
 
-            GL.BindBuffer(BufferTarget.ArrayBuffer, vboHandle);
-            GL.BufferData(BufferTarget.ArrayBuffer, vertices.Count * sizeof(float), vertices.ToArray(), dynamic ? BufferUsageHint.DynamicDraw : BufferUsageHint.StaticDraw);
+            GL.BindBuffer(BufferTargetARB.ArrayBuffer, vboHandle);
+            GL.BufferData(BufferTargetARB.ArrayBuffer, vertices.ToArray(), dynamic ? BufferUsageARB.DynamicDraw : BufferUsageARB.StaticDraw);
         }
 
         public void Render(Camera camera, RenderPass renderPass)
@@ -142,12 +143,12 @@ namespace GUI.Types.Renderer
                 GL.UseProgram(shader.Program);
 
                 var projectionViewMatrix = camera.ViewProjectionMatrix.ToOpenTK();
-                GL.UniformMatrix4(shader.GetUniformLocation("uProjectionViewMatrix"), false, ref projectionViewMatrix);
+                GL.UniformMatrix4f(shader.GetUniformLocation("uProjectionViewMatrix"), false, projectionViewMatrix);
 
                 GL.BindVertexArray(vaoHandle);
                 GL.DrawArrays(PrimitiveType.Lines, 0, vertexCount);
-                GL.BindVertexArray(0);
-                GL.UseProgram(0);
+                GL.BindVertexArray(VertexArrayHandle.Zero);
+                GL.UseProgram(ProgramHandle.Zero);
                 GL.DepthMask(true);
                 GL.Disable(EnableCap.Blend);
                 GL.Disable(EnableCap.DepthTest);

@@ -323,7 +323,7 @@ namespace GUI.Controls
             var count = GL.GetInteger(GetPName.NumExtensions);
             for (var i = 0; i < count; i++)
             {
-                var extension = GL.GetString(StringNameIndexed.Extensions, i);
+                var extension = GL.GetString(StringName.Extensions, i);
                 if (!extensions.Contains(extension))
                 {
                     extensions.Add(extension);

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Numerics;
 using GUI.Types.Renderer;
 using GUI.Utils;
+using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
 using ValveResourceFormat.ResourceTypes;
 using ValveResourceFormat.Serialization;
@@ -15,8 +16,8 @@ namespace GUI.Types.ParticleRenderer.Renderers
 
         private Shader shader;
         private readonly VrfGuiContext guiContext;
-        private readonly int quadVao;
-        private readonly int glTexture;
+        private readonly VertexArrayHandle quadVao;
+        private readonly TextureHandle glTexture;
 
         private readonly Texture.SpritesheetData spriteSheetData;
         private readonly float animationRate = 0.1f;
@@ -104,7 +105,7 @@ namespace GUI.Types.ParticleRenderer.Renderers
             }
         }
 
-        private int SetupQuadBuffer()
+        private VertexArrayHandle SetupQuadBuffer()
         {
             GL.UseProgram(shader.Program);
 
@@ -113,7 +114,7 @@ namespace GUI.Types.ParticleRenderer.Renderers
             GL.BindVertexArray(vao);
 
             var vbo = GL.GenBuffer();
-            GL.BindBuffer(BufferTarget.ArrayBuffer, vbo);
+            GL.BindBuffer(BufferTargetARB.ArrayBuffer, vbo);
 
             var vertices = new[]
             {
@@ -123,19 +124,19 @@ namespace GUI.Types.ParticleRenderer.Renderers
                 1.0f, 1.0f, 0.0f,
             };
 
-            GL.BufferData(BufferTarget.ArrayBuffer, vertices.Length * sizeof(float), vertices, BufferUsageHint.StaticDraw);
+            GL.BufferData(BufferTargetARB.ArrayBuffer, vertices, BufferUsageARB.StaticDraw);
 
             GL.EnableVertexAttribArray(0);
 
             var positionAttributeLocation = GL.GetAttribLocation(shader.Program, "aVertexPosition");
             GL.VertexAttribPointer(positionAttributeLocation, 3, VertexAttribPointerType.Float, false, 0, 0);
 
-            GL.BindVertexArray(0); // Unbind VAO
+            GL.BindVertexArray(VertexArrayHandle.Zero);
 
             return vao;
         }
 
-        private static (int TextureIndex, Texture TextureData) LoadTexture(string textureName, VrfGuiContext vrfGuiContext)
+        private static (TextureHandle TextureIndex, Texture TextureData) LoadTexture(string textureName, VrfGuiContext vrfGuiContext)
         {
             var textureResource = vrfGuiContext.LoadFileByAnyMeansNecessary(textureName + "_c");
 
@@ -167,15 +168,15 @@ namespace GUI.Types.ParticleRenderer.Renderers
             GL.EnableVertexAttribArray(0);
 
             GL.ActiveTexture(TextureUnit.Texture0);
-            GL.BindTexture(TextureTarget.Texture2D, glTexture);
+            GL.BindTexture(TextureTarget.Texture2d, glTexture);
 
-            GL.Uniform1(shader.GetUniformLocation("uTexture"), 0); // set texture unit 0 as uTexture uniform
+            GL.Uniform1i(shader.GetUniformLocation("uTexture"), 0); // set texture unit 0 as uTexture uniform
 
             var otkProjection = viewProjectionMatrix.ToOpenTK();
-            GL.UniformMatrix4(shader.GetUniformLocation("uProjectionViewMatrix"), false, ref otkProjection);
+            GL.UniformMatrix4f(shader.GetUniformLocation("uProjectionViewMatrix"), false, otkProjection);
 
             // TODO: This formula is a guess but still seems too bright compared to valve particles
-            GL.Uniform1(shader.GetUniformLocation("uOverbrightFactor"), overbrightFactor.NextNumber());
+            GL.Uniform1d(shader.GetUniformLocation("uOverbrightFactor"), overbrightFactor.NextNumber());
 
             var modelMatrixLocation = shader.GetUniformLocation("uModelMatrix");
             var colorLocation = shader.GetUniformLocation("uColor");
@@ -221,7 +222,7 @@ namespace GUI.Types.ParticleRenderer.Renderers
 
                 // Position/Radius uniform
                 var otkModelMatrix = modelMatrix.ToOpenTK();
-                GL.UniformMatrix4(modelMatrixLocation, false, ref otkModelMatrix);
+                GL.UniformMatrix4f(modelMatrixLocation, false, otkModelMatrix);
 
                 if (spriteSheetData != null && spriteSheetData.Sequences.Length > 0 && spriteSheetData.Sequences[0].Frames.Length > 0)
                 {
@@ -239,29 +240,29 @@ namespace GUI.Types.ParticleRenderer.Renderers
                     var scale = ((currentImage.CroppedMax - currentImage.CroppedMin) * (1 - subFrameTime))
                             + ((currentImage.UncroppedMax - currentImage.UncroppedMin) * subFrameTime);
 
-                    GL.Uniform2(uvOffsetLocation, offset.X, offset.Y);
-                    GL.Uniform2(uvScaleLocation, scale.X * finalTextureScaleU, scale.Y * finalTextureScaleV);
+                    GL.Uniform2f(uvOffsetLocation, offset.X, offset.Y);
+                    GL.Uniform2f(uvScaleLocation, scale.X * finalTextureScaleU, scale.Y * finalTextureScaleV);
                 }
                 else
                 {
-                    GL.Uniform2(uvOffsetLocation, 1f, 1f);
-                    GL.Uniform2(uvScaleLocation, finalTextureScaleU, finalTextureScaleV);
+                    GL.Uniform2f(uvOffsetLocation, 1f, 1f);
+                    GL.Uniform2f(uvScaleLocation, finalTextureScaleU, finalTextureScaleV);
                 }
 
                 // Color uniform
-                GL.Uniform3(colorLocation, particles[i].Color.X, particles[i].Color.Y, particles[i].Color.Z);
+                GL.Uniform3f(colorLocation, particles[i].Color.X, particles[i].Color.Y, particles[i].Color.Z);
 
-                GL.Uniform1(alphaLocation, particles[i].Alpha * particles[i].AlphaAlternate);
+                GL.Uniform1f(alphaLocation, particles[i].Alpha * particles[i].AlphaAlternate);
 
                 GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4);
             }
 
-            GL.BindVertexArray(0);
-            GL.UseProgram(0);
+            GL.BindVertexArray(VertexArrayHandle.Zero);
+            GL.UseProgram(ProgramHandle.Zero);
 
             if (additive)
             {
-                GL.BlendEquation(BlendEquationMode.FuncAdd);
+                GL.BlendEquation(BlendEquationModeEXT.FuncAdd);
             }
 
             GL.Disable(EnableCap.Blend);

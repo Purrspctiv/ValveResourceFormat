@@ -1,3 +1,4 @@
+using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
 
@@ -17,7 +18,7 @@ namespace GUI.Types.Renderer
         //public string Flags { get; set; }        //TODO
         public Vector3 TintColor { get; set; } = Vector3.One;
         public RenderMaterial Material { get; set; }
-        public uint VertexArrayObject { get; set; }
+        public VertexArrayHandle VertexArrayObject { get; set; }
         public DrawBuffer VertexBuffer { get; set; }
         public DrawElementsType IndexType { get; set; }
         public DrawBuffer IndexBuffer { get; set; }

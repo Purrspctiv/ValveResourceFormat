@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using GUI.Utils;
+using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
 using ValveResourceFormat;
 using PrimitiveType = OpenTK.Graphics.OpenGL.PrimitiveType;
@@ -10,8 +11,7 @@ namespace GUI.Types.Renderer
 {
     internal class SpriteSceneNode : SceneNode
     {
-        private readonly int quadVao;
-
+        private readonly VertexArrayHandle quadVao = VertexArrayHandle.Zero;
         private readonly RenderMaterial material;
         private readonly Shader shader;
         private readonly Vector3 position;
@@ -23,7 +23,7 @@ namespace GUI.Types.Renderer
             material = vrfGuiContext.MaterialLoader.LoadMaterial(resource);
             shader = vrfGuiContext.ShaderLoader.LoadShader(material.Material.ShaderName, material.Material.GetShaderArguments());
 
-            if (quadVao == 0)
+            if (quadVao == VertexArrayHandle.Zero)
             {
                 quadVao = SetupQuadBuffer();
             }
@@ -35,7 +35,7 @@ namespace GUI.Types.Renderer
             LocalBoundingBox = new AABB(position - size3, position + size3);
         }
 
-        private int SetupQuadBuffer()
+        private VertexArrayHandle SetupQuadBuffer()
         {
             GL.UseProgram(shader.Program);
 
@@ -43,7 +43,7 @@ namespace GUI.Types.Renderer
             GL.BindVertexArray(vao);
 
             var vbo = GL.GenBuffer();
-            GL.BindBuffer(BufferTarget.ArrayBuffer, vbo);
+            GL.BindBuffer(BufferTargetARB.ArrayBuffer, vbo);
 
             var vertices = new[]
             {
@@ -54,7 +54,7 @@ namespace GUI.Types.Renderer
                 1.0f, 1.0f, 0.0f,    1.0f, 0.0f,
             };
 
-            GL.BufferData(BufferTarget.ArrayBuffer, vertices.Length * sizeof(float), vertices, BufferUsageHint.DynamicDraw);
+            GL.BufferData(BufferTargetARB.ArrayBuffer, vertices, BufferUsageARB.DynamicDraw);
 
             var attributes = new List<(string Name, int Size)>
             {
@@ -72,7 +72,7 @@ namespace GUI.Types.Renderer
                 offset += sizeof(float) * Size;
             }
 
-            GL.BindVertexArray(0);
+            GL.BindVertexArray(VertexArrayHandle.Zero);
 
             return vao;
         }
@@ -96,10 +96,10 @@ namespace GUI.Types.Renderer
             var test = billboardMatrix * scaleMatrix * translationMatrix;
             var test2 = test.ToOpenTK();
 
-            GL.UniformMatrix4(shader.GetUniformLocation("uProjectionViewMatrix"), false, ref viewProjectionMatrix);
+            GL.UniformMatrix4f(shader.GetUniformLocation("uProjectionViewMatrix"), false, viewProjectionMatrix);
 
             var transformTk = Transform.ToOpenTK();
-            GL.UniformMatrix4(shader.GetUniformLocation("transform"), false, ref test2);
+            GL.UniformMatrix4f(shader.GetUniformLocation("transform"), false, test2);
 
             material.Render(shader);
 
@@ -113,8 +113,8 @@ namespace GUI.Types.Renderer
             GL.Enable(EnableCap.CullFace);
             GL.Disable(EnableCap.DepthTest);
 
-            GL.BindVertexArray(0);
-            GL.UseProgram(0);
+            GL.BindVertexArray(VertexArrayHandle.Zero);
+            GL.UseProgram(ProgramHandle.Zero);
         }
 
         public override void Update(Scene.UpdateContext context)
