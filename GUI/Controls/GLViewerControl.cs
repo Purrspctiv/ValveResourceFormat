@@ -10,7 +10,6 @@ using GUI.Utils;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Windowing.Common;
 using OpenTK.WinForms;
-using GLControl = OpenTK.WinForms.GLControl;
 
 namespace GUI.Controls
 {
@@ -60,10 +59,6 @@ namespace GUI.Controls
 
             GLControl = new GLControl(glSettings);
             GLControl.Load += OnLoad;
-            GLControl.Paint += OnPaint;
-            GLControl.Resize += OnResize;
-            GLControl.GotFocus += OnGotFocus;
-            GLControl.VisibleChanged += OnVisibleChanged;
             GLControl.Disposed += OnDisposed;
 
             GLControl.Dock = DockStyle.Fill;
@@ -87,8 +82,6 @@ namespace GUI.Controls
             checkbox.CheckBox.CheckedChanged += (_, __) =>
             {
                 changeCallback(checkbox.CheckBox.Checked);
-
-                GLControl.Focus();
             };
 
             controlsPanel.Controls.Add(checkbox);
@@ -110,8 +103,6 @@ namespace GUI.Controls
             {
                 selectionControl.Refresh();
                 changeCallback(selectionControl.ComboBox.SelectedItem as string, selectionControl.ComboBox.SelectedIndex);
-
-                GLControl.Focus();
             };
 
             return selectionControl.ComboBox;
@@ -132,8 +123,6 @@ namespace GUI.Controls
                 {
                     selectionControl.Refresh();
                     changeCallback(selectionControl.CheckedListBox.CheckedItems.OfType<string>());
-
-                    GLControl.Focus();
                 }));
             };
 
@@ -165,6 +154,7 @@ namespace GUI.Controls
         {
             GLControl.Load -= OnLoad;
             GLControl.Paint -= OnPaint;
+            GLControl.Click -= OnClick;
             GLControl.Resize -= OnResize;
             GLControl.GotFocus -= OnGotFocus;
             GLControl.VisibleChanged -= OnVisibleChanged;
@@ -174,8 +164,14 @@ namespace GUI.Controls
             {
                 NativeInput.MouseEnter -= OnMouseEnter;
                 NativeInput.MouseLeave -= OnMouseLeave;
+                NativeInput.MouseDown -= OnMouseDown;
                 NativeInput = null;
             }
+        }
+
+        private void OnClick(object sender, EventArgs e)
+        {
+            GLControl.Focus();
         }
 
         private void OnVisibleChanged(object sender, EventArgs e)
@@ -183,7 +179,6 @@ namespace GUI.Controls
             if (GLControl.Visible)
             {
                 GLControl.Focus();
-                HandleResize();
             }
         }
 
@@ -204,6 +199,7 @@ namespace GUI.Controls
             NativeInput = GLControl.EnableNativeInput();
             NativeInput.MouseEnter += OnMouseEnter;
             NativeInput.MouseLeave += OnMouseLeave;
+            NativeInput.MouseDown += OnMouseDown;
 
             CheckOpenGL();
 
@@ -225,8 +221,21 @@ namespace GUI.Controls
                 throw;
             }
 
+            GLControl.Paint += OnPaint;
+            GLControl.Resize += OnResize;
+            GLControl.GotFocus += OnGotFocus;
+            GLControl.VisibleChanged += OnVisibleChanged;
+
             HandleResize();
             Draw();
+        }
+
+        private void OnMouseDown(MouseButtonEventArgs obj)
+        {
+            if (obj.Button == OpenTK.Windowing.GraphicsLibraryFramework.MouseButton.Left)
+            {
+                GLControl.Focus();
+            }
         }
 
         private void OnPaint(object sender, EventArgs e)
@@ -256,12 +265,7 @@ namespace GUI.Controls
             var frameTime = elapsed * TickFrequency / TicksPerSecond;
 
             Camera.Tick(frameTime);
-
-            // TODO: Why are we trying to draw before its loaded
-            if (NativeInput != null)
-            {
-                Camera.HandleInput(NativeInput);
-            }
+            Camera.HandleInput(NativeInput);
 
             GL.ClearColor(Settings.BackgroundColor);
             GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
