@@ -4,6 +4,7 @@ using System.Numerics;
 using GUI.Types.Renderer;
 using GUI.Utils;
 using OpenTK.Graphics.OpenGL;
+using ValveResourceFormat;
 using ValveResourceFormat.Serialization;
 
 namespace GUI.Types.ParticleRenderer.Renderers
@@ -18,16 +19,20 @@ namespace GUI.Types.ParticleRenderer.Renderers
         private readonly RenderTexture texture;
 
         private readonly float animationRate = 0.1f;
+        private readonly ParticleAnimationType animationType = ParticleAnimationType.ANIMATION_TYPE_FIXED_RATE;
 
         private readonly bool additive;
         private readonly INumberProvider overbrightFactor = new LiteralNumberProvider(1);
         private readonly long orientationType;
+        private readonly ParticleField prevPositionSource = ParticleField.PositionPrevious; // this is a real thing
 
         private readonly float finalTextureScaleU = 1f;
         private readonly float finalTextureScaleV = 1f;
 
         private readonly float maxLength = 2000f;
         private readonly float lengthFadeInTime;
+
+        private static bool wireframe;
 
         public RenderTrails(IKeyValueCollection keyValues, VrfGuiContext vrfGuiContext)
         {
@@ -91,8 +96,23 @@ namespace GUI.Types.ParticleRenderer.Renderers
             {
                 lengthFadeInTime = keyValues.GetFloatProperty("m_flLengthFadeInTime");
             }
+
+            if (keyValues.ContainsKey("m_nAnimationType"))
+            {
+                animationType = keyValues.GetEnumValue<ParticleAnimationType>("m_nAnimationType");
+            }
+
+            if (keyValues.ContainsKey("m_nPrevPntSource"))
+            {
+                prevPositionSource = keyValues.GetParticleField("m_nPrevPntSource");
+            }
         }
 
+        public void SetWireframe(bool isWireframe)
+        {
+            wireframe = isWireframe;
+            shader.SetUniform1("isWireframe", isWireframe);
+        }
         private int SetupQuadBuffer()
         {
             GL.UseProgram(shader.Program);
@@ -124,12 +144,13 @@ namespace GUI.Types.ParticleRenderer.Renderers
             return vao;
         }
 
-        public void Render(ParticleBag particleBag, Matrix4x4 viewProjectionMatrix, Matrix4x4 modelViewMatrix)
+        public void Render(ParticleBag particleBag, ParticleSystemRenderState systemRenderState, Matrix4x4 viewProjectionMatrix, Matrix4x4 modelViewMatrix)
         {
             var particles = particleBag.LiveParticles;
 
             GL.Enable(EnableCap.Blend);
             GL.UseProgram(shader.Program);
+
 
             if (additive)
             {
@@ -143,32 +164,30 @@ namespace GUI.Types.ParticleRenderer.Renderers
             GL.BindVertexArray(quadVao);
             GL.EnableVertexAttribArray(0);
 
-            GL.ActiveTexture(TextureUnit.Texture0);
-            texture.Bind();
+            // set texture unit 0 as uTexture uniform
+            shader.SetTexture(0, "uTexture", texture.Handle);
 
-            GL.Uniform1(shader.GetUniformLocation("uTexture"), 0); // set texture unit 0 as uTexture uniform
-
-            var otkProjection = viewProjectionMatrix.ToOpenTK();
-            GL.UniformMatrix4(shader.GetUniformLocation("uProjectionViewMatrix"), false, ref otkProjection);
+            shader.SetUniform4x4("uProjectionViewMatrix", viewProjectionMatrix);
 
             // TODO: This formula is a guess but still seems too bright compared to valve particles
-            GL.Uniform1(shader.GetUniformLocation("uOverbrightFactor"), overbrightFactor.NextNumber());
-
-            var modelMatrixLocation = shader.GetUniformLocation("uModelMatrix");
-            var colorLocation = shader.GetUniformLocation("uColor");
-            var alphaLocation = shader.GetUniformLocation("uAlpha");
-            var uvOffsetLocation = shader.GetUniformLocation("uUvOffset");
-            var uvScaleLocation = shader.GetUniformLocation("uUvScale");
+            // also todo: pass all of these as vertex parameters (probably just color/alpha combined)
+            shader.SetUniform1("uOverbrightFactor", overbrightFactor.NextNumber());
 
             // Create billboarding rotation (always facing camera)
             Matrix4x4.Decompose(modelViewMatrix, out _, out var modelViewRotation, out _);
             modelViewRotation = Quaternion.Inverse(modelViewRotation);
             var billboardMatrix = Matrix4x4.CreateFromQuaternion(modelViewRotation);
 
+            if (wireframe)
+            {
+                GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line);
+            }
+
+            // Todo: this could be adapted into renderropes without much difficulty
             for (var i = 0; i < particles.Length; ++i)
             {
-                var position = new Vector3(particles[i].Position.X, particles[i].Position.Y, particles[i].Position.Z);
-                var previousPosition = new Vector3(particles[i].PositionPrevious.X, particles[i].PositionPrevious.Y, particles[i].PositionPrevious.Z);
+                var position = particles[i].Position;
+                var previousPosition = particles[i].GetVector(prevPositionSource);
                 var difference = previousPosition - position;
                 var direction = Vector3.Normalize(difference);
 
@@ -177,7 +196,7 @@ namespace GUI.Types.ParticleRenderer.Renderers
                 // Trail width = radius
                 // Trail length = distance between current and previous times trail length divided by 2 (because the base particle is 2 wide)
                 var length = Math.Min(maxLength, particles[i].TrailLength * difference.Length() / 2f);
-                var t = 1 - (particles[i].Lifetime / particles[i].ConstantLifetime);
+                var t = particles[i].NormalizedAge;
                 var animatedLength = t >= lengthFadeInTime
                     ? length
                     : t * length / lengthFadeInTime;
@@ -189,7 +208,7 @@ namespace GUI.Types.ParticleRenderer.Renderers
                 // Calculate rotation matrix
 
                 var axis = Vector3.Normalize(Vector3.Cross(Vector3.UnitY, direction));
-                var angle = (float)Math.Acos(direction.Y);
+                var angle = MathF.Acos(direction.Y);
                 var rotationMatrix = Matrix4x4.CreateFromAxisAngle(axis, angle);
 
                 var modelMatrix =
@@ -197,39 +216,42 @@ namespace GUI.Types.ParticleRenderer.Renderers
                     : particles[i].GetTransformationMatrix();
 
                 // Position/Radius uniform
-                var otkModelMatrix = modelMatrix.ToOpenTK();
-                GL.UniformMatrix4(modelMatrixLocation, false, ref otkModelMatrix);
+                shader.SetUniform4x4("uModelMatrix", modelMatrix);
 
                 var spriteSheetData = texture.SpritesheetData;
                 if (spriteSheetData != null && spriteSheetData.Sequences.Length > 0 && spriteSheetData.Sequences[0].Frames.Length > 0)
                 {
                     var sequence = spriteSheetData.Sequences[0];
 
-                    var particleTime = particles[i].ConstantLifetime - particles[i].Lifetime;
-                    var frame = particleTime * sequence.FramesPerSecond * animationRate;
+                    var animationTime = animationType switch
+                    {
+                        ParticleAnimationType.ANIMATION_TYPE_FIXED_RATE => particles[i].Age,
+                        ParticleAnimationType.ANIMATION_TYPE_FIT_LIFETIME => particles[i].NormalizedAge,
+                        _ => particles[i].Age,
+                    };
+                    var frame = animationTime * sequence.FramesPerSecond * animationRate;
 
-                    var currentFrame = sequence.Frames[(int)Math.Floor(frame) % sequence.Frames.Length];
+                    var currentFrame = sequence.Frames[(int)MathF.Floor(frame) % sequence.Frames.Length];
                     var currentImage = currentFrame.Images[0]; // TODO: Support more than one image per frame?
 
                     // Lerp frame coords and size
                     var subFrameTime = frame % 1.0f;
-                    var offset = (currentImage.CroppedMin * (1 - subFrameTime)) + (currentImage.UncroppedMin * subFrameTime);
-                    var scale = ((currentImage.CroppedMax - currentImage.CroppedMin) * (1 - subFrameTime))
-                            + ((currentImage.UncroppedMax - currentImage.UncroppedMin) * subFrameTime);
+                    var offset = MathUtils.Lerp(subFrameTime, currentImage.CroppedMin, currentImage.UncroppedMin);
+                    var scale = MathUtils.Lerp(subFrameTime, currentImage.CroppedMax - currentImage.CroppedMin,
+                        currentImage.UncroppedMax - currentImage.UncroppedMin);
 
-                    GL.Uniform2(uvOffsetLocation, offset.X, offset.Y);
-                    GL.Uniform2(uvScaleLocation, scale.X * finalTextureScaleU, scale.Y * finalTextureScaleV);
+                    shader.SetUniform2("uUvOffset", offset);
+                    shader.SetUniform2("uUvScale", scale * new Vector2(finalTextureScaleU, finalTextureScaleV));
                 }
                 else
                 {
-                    GL.Uniform2(uvOffsetLocation, 1f, 1f);
-                    GL.Uniform2(uvScaleLocation, finalTextureScaleU, finalTextureScaleV);
+                    shader.SetUniform2("uUvOffset", Vector2.One);
+                    shader.SetUniform2("uUvScale", new Vector2(finalTextureScaleU, finalTextureScaleV));
                 }
 
                 // Color uniform
-                GL.Uniform3(colorLocation, particles[i].Color.X, particles[i].Color.Y, particles[i].Color.Z);
-
-                GL.Uniform1(alphaLocation, particles[i].Alpha * particles[i].AlphaAlternate);
+                shader.SetUniform3("uColor", particles[i].Color);
+                shader.SetUniform1("uAlpha", particles[i].Alpha * particles[i].AlphaAlternate);
 
                 GL.DrawArrays(PrimitiveType.TriangleStrip, 0, 4);
             }
@@ -243,6 +265,7 @@ namespace GUI.Types.ParticleRenderer.Renderers
             }
 
             GL.Disable(EnableCap.Blend);
+            GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill);
         }
 
         public IEnumerable<string> GetSupportedRenderModes() => shader.RenderModes;
