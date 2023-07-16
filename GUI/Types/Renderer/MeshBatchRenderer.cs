@@ -106,6 +106,7 @@ namespace GUI.Types.Renderer
                     shader.SetUniform4Array("g_vEnvMapPositionWs", count, context.LightingInfo.EnvMapPositionsUniform);
                     shader.SetUniform4Array("g_vEnvMapBoxMins", count, context.LightingInfo.EnvMapMinsUniform);
                     shader.SetUniform4Array("g_vEnvMapBoxMaxs", count, context.LightingInfo.EnvMapMaxsUniform);
+                    shader.SetUniform4Array("g_vEnvMapEdgeFadeDists", count, context.LightingInfo.EnvMapEdgeFadeDists);
                 }
 
                 foreach (var materialGroup in shaderGroup.GroupBy(a => a.Call.Material))
@@ -161,6 +162,7 @@ namespace GUI.Types.Renderer
 
             if (uniforms.CubeMapArrayIndex != -1)
             {
+                /*
                 var arrayIndex = 0;
 
                 if (request.Node.CubeMapPrecomputedHandshake > 0 && context.LightingInfo.EnvMaps.TryGetValue(request.Node.CubeMapPrecomputedHandshake, out var envMap))
@@ -169,6 +171,11 @@ namespace GUI.Types.Renderer
                 }
 
                 GL.Uniform1(uniforms.CubeMapArrayIndex, arrayIndex);
+                */
+
+                var array = request.Node.EnvMaps.Take(4).Select(x => x.ArrayIndex).ToArray();
+
+                GL.Uniform1(uniforms.CubeMapArrayIndex, array.Length, array);
             }
 
             if (uniforms.Time != 1)

@@ -1,21 +1,26 @@
 // https://seblagarde.wordpress.com/2012/09/29/image-based-lighting-approaches-and-parallax-corrected-cubemap/
-vec3 CubeMapBoxProjection(vec3 pos, vec3 R, vec3 mins, vec3 maxs, vec3 center)
+vec3 CubeMapBoxProjection(vec3 pos, vec3 R, vec3 mins, vec3 maxs, vec4 center)
 {
-    // Following is the parallax-correction code
-    // Find the ray intersection with box plane
-    vec3 FirstPlaneIntersect = (maxs - pos) / R;
-    vec3 SecondPlaneIntersect = (mins - pos) / R;
-    // Get the furthest of these intersections along the ray
-    // (Ok because x/0 give +inf and -x/0 give -inf )
-    vec3 FurthestPlane = max(FirstPlaneIntersect, SecondPlaneIntersect);
-    // Find the closest far intersection
-    float Distance = min(min(FurthestPlane.x, FurthestPlane.y), FurthestPlane.z);
+    if (center.w > 0.0)
+    {
+        // Following is the parallax-correction code
+        // Find the ray intersection with box plane
+        vec3 FirstPlaneIntersect = (maxs - pos) / R;
+        vec3 SecondPlaneIntersect = (mins - pos) / R;
+        // Get the furthest of these intersections along the ray
+        // (Ok because x/0 give +inf and -x/0 give -inf )
+        vec3 FurthestPlane = max(FirstPlaneIntersect, SecondPlaneIntersect);
+        // Find the closest far intersection
+        float Distance = min(min(FurthestPlane.x, FurthestPlane.y), FurthestPlane.z);
 
-    // Get the intersection position
-    vec3 IntersectPositionWS = pos + R * Distance;
-    // Get corrected reflection
-    return IntersectPositionWS - center;
-    // End parallax-correction code
+        // Get the intersection position
+        vec3 IntersectPositionWS = pos + R * Distance;
+        // Get corrected reflection
+        return IntersectPositionWS - center.xyz;
+        // End parallax-correction code
+    }
+
+    return R;
 }
 
 #define MAX_ENVMAP_LOD 7
@@ -36,7 +41,8 @@ vec3 CubeMapBoxProjection(vec3 pos, vec3 R, vec3 mins, vec3 maxs, vec3 center)
     uniform vec4 g_vEnvMapPositionWs[MAX_ENVMAPS];
     uniform vec4 g_vEnvMapBoxMins[MAX_ENVMAPS];
     uniform vec4 g_vEnvMapBoxMaxs[MAX_ENVMAPS];
-    uniform int g_iEnvironmentMapArrayIndex;
+    uniform vec4 g_vEnvMapEdgeFadeDists[MAX_ENVMAPS];
+    uniform int g_iEnvironmentMapArrayIndex[4];
 #endif
 
 float GetEnvMapLOD(float roughness, vec3 R, vec4 extraParams)
@@ -48,7 +54,6 @@ float GetEnvMapLOD(float roughness, vec3 R, vec4 extraParams)
         return roughness * MAX_ENVMAP_LOD;
     #endif
 }
-
 
 // Cubemap Normalization
 // Used in HLA, maybe later vr renderer games too.
@@ -96,6 +101,12 @@ float EnvBRDFCloth(float roughness, vec3 N, vec3 V)
 
 #endif
 
+float GetEnvMapWeight(vec3 center, vec3 mins, vec3 maxs, vec3 dists)
+{
+    vec3 weight = min(center - mins.xyz, maxs.xyz - center) / dists;
+    return clamp(min(weight.x, min(weight.y, weight.z)), 0.0, 1.0);
+}
+
 vec3 GetEnvironment(vec3 N, vec3 V, float rough, vec3 specColor, vec3 irradiance, vec4 extraParams)
 {
     #if (SCENE_ENVIRONMENT_TYPE == 0)
@@ -104,34 +115,46 @@ vec3 GetEnvironment(vec3 N, vec3 V, float rough, vec3 specColor, vec3 irradiance
 
     // Reflection Vector
     vec3 R = normalize(reflect(-V, N));
+    float lod = GetEnvMapLOD(rough, R, extraParams);
 
     #if (SCENE_ENVIRONMENT_TYPE == 1)
         vec3 coords = R;
         vec3 mins = g_vEnvMapBoxMins.xyz;
         vec3 maxs = g_vEnvMapBoxMaxs.xyz;
         vec3 center = g_vEnvMapPositionWs.xyz;
+        vec3 envMap = textureLod(g_tEnvironmentMap, coords, lod).rgb;
     #elif (SCENE_ENVIRONMENT_TYPE == 2)
-        vec4 coords = vec4(R, g_iEnvironmentMapArrayIndex);
-        vec3 mins = g_vEnvMapBoxMins[g_iEnvironmentMapArrayIndex].xyz;
-        vec3 maxs = g_vEnvMapBoxMaxs[g_iEnvironmentMapArrayIndex].xyz;
-        vec3 center = g_vEnvMapPositionWs[g_iEnvironmentMapArrayIndex].xyz;
+        vec3 envMap = vec3(0.0);
+        float totalWeight = 0.0;
 
-        if (g_vEnvMapPositionWs[g_iEnvironmentMapArrayIndex].w > 0.0)
-        {
-            coords.xyz = CubeMapBoxProjection(vFragPosition, R, mins, maxs, center);
+        for (int i = 0; i < 1 && totalWeight < 0.99; i++) {
+            int envMapArrayIndex = g_iEnvironmentMapArrayIndex[i];
+            vec3 mins = g_vEnvMapBoxMins[envMapArrayIndex].xyz;
+            vec3 maxs = g_vEnvMapBoxMaxs[envMapArrayIndex].xyz;
+            vec3 dists = g_vEnvMapEdgeFadeDists[envMapArrayIndex].xyz;
+            vec4 center = g_vEnvMapPositionWs[envMapArrayIndex];
+            vec4 coords = vec4(CubeMapBoxProjection(vFragPosition, R, mins, maxs, center), envMapArrayIndex);
+
+            //float weight = GetEnvMapWeight(vFragPosition, mins, maxs, dists);
+            //weight = min(weight, 1.0f - totalWeight);
+            //totalWeight += weight;
+
+#if renderMode_Cubemaps == 0
+            // blend
+            #if (F_CLOTH_SHADING == 1)
+                coords.xyz = normalize(mix(coords.xyz, N, sqrt(rough)));
+            #else
+                coords.xyz = normalize(mix(coords.xyz, N, rough));
+            #endif
+#endif
+
+            envMap += textureLod(g_tEnvironmentMap, coords, lod).rgb; // * weight;
         }
     #endif
 
 #if renderMode_Cubemaps == 1
-    return textureLod(g_tEnvironmentMap, coords, 0.0).rgb;
+    return envMap;
 #else
-    // blend
-    #if (F_CLOTH_SHADING == 1)
-        coords.xyz = normalize(mix(coords.xyz, N, sqrt(rough)));
-    #else
-        coords.xyz = normalize(mix(coords.xyz, N, rough));
-    #endif
-
     vec3 brdf = EnvBRDF(specColor, rough, N, V);
 
     #if (F_CLOTH_SHADING == 1)
@@ -142,10 +165,7 @@ vec3 GetEnvironment(vec3 N, vec3 V, float rough, vec3 specColor, vec3 irradiance
         brdf = mix(brdf, clothBrdf, clothMask);
     #endif
 
-    float lod = GetEnvMapLOD(rough, R, extraParams);
     float normalizationTerm = GetEnvMapNormalization(rough, N, irradiance);
-
-    vec3 envMap = textureLod(g_tEnvironmentMap, coords, lod).rgb;
 
     return brdf * envMap * normalizationTerm;
 #endif

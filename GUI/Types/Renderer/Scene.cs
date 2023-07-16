@@ -312,12 +312,22 @@ namespace GUI.Types.Renderer
                     continue;
                 }
 
+                node.EnvMaps = node.EnvMaps.OrderByDescending((envMap) =>
+                {
+                    return envMap.IndoorOutdoorLevel;
+                }).ThenBy((envMap) =>
+                {
+                    return Vector3.Distance(node.BoundingBox.Center, envMap.BoundingBox.Center);
+                }).ToList();
+
+                /*
                 var envMaps = node.EnvMaps.OrderBy((envMap) =>
                 {
                     return Vector3.Distance(node.BoundingBox.Center, envMap.BoundingBox.Center);
                 }).ToList();
 
                 node.CubeMapPrecomputedHandshake = envMaps.First().HandShake;
+                */
             }
         }
     }
