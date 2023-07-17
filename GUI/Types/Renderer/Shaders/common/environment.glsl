@@ -1,22 +1,24 @@
 // https://seblagarde.wordpress.com/2012/09/29/image-based-lighting-approaches-and-parallax-corrected-cubemap/
-vec3 CubeMapBoxProjection(vec3 pos, vec3 R, vec3 mins, vec3 maxs, vec4 center)
+vec3 CubeMapBoxProjection(vec3 pos, vec3 R, vec3 mins, vec3 maxs, mat4x3 envMapWorldToLocal)
 {
-    if (center.w > 0.0)
+    //if (center.w > 0.0) // TODO
     {
+        vec3 localReflectionVector = (envMapWorldToLocal * vec4(R, 0.0)).xyz;
+
         // Following is the parallax-correction code
         // Find the ray intersection with box plane
-        vec3 FirstPlaneIntersect = (maxs - pos) / R;
-        vec3 SecondPlaneIntersect = (mins - pos) / R;
+        vec3 FirstPlaneIntersect = maxs / localReflectionVector;
+        vec3 SecondPlaneIntersect = mins / localReflectionVector;
         // Get the furthest of these intersections along the ray
         // (Ok because x/0 give +inf and -x/0 give -inf )
         vec3 FurthestPlane = max(FirstPlaneIntersect, SecondPlaneIntersect);
         // Find the closest far intersection
-        float Distance = min(min(FurthestPlane.x, FurthestPlane.y), FurthestPlane.z);
+        float Distance = min3(FurthestPlane);
 
         // Get the intersection position
-        vec3 IntersectPositionWS = pos + R * Distance;
+        vec3 IntersectPositionWS = pos + localReflectionVector * Distance;
         // Get corrected reflection
-        return IntersectPositionWS - center.xyz;
+        return IntersectPositionWS;
         // End parallax-correction code
     }
 
@@ -33,12 +35,11 @@ vec3 CubeMapBoxProjection(vec3 pos, vec3 R, vec3 mins, vec3 maxs, vec4 center)
     uniform samplerCube g_tEnvironmentMap;
     uniform vec4 g_vEnvMapBoxMins;
     uniform vec4 g_vEnvMapBoxMaxs;
-    uniform vec4 g_vEnvMapPositionWs;
+    uniform mat4x3 g_matEnvMapWorldToLocal;
 #elif (SCENE_ENVIRONMENT_TYPE == 2) // Per scene cube map array
     #define MAX_ENVMAPS 144
     uniform samplerCubeArray g_tEnvironmentMap;
-    uniform mat4 g_matEnvMapWorldToLocal[MAX_ENVMAPS];
-    uniform vec4 g_vEnvMapPositionWs[MAX_ENVMAPS];
+    uniform mat4x3 g_matEnvMapWorldToLocal[MAX_ENVMAPS];
     uniform vec4 g_vEnvMapBoxMins[MAX_ENVMAPS];
     uniform vec4 g_vEnvMapBoxMaxs[MAX_ENVMAPS];
     uniform vec4 g_vEnvMapEdgeFadeDists[MAX_ENVMAPS];
@@ -101,10 +102,16 @@ float EnvBRDFCloth(float roughness, vec3 N, vec3 V)
 
 #endif
 
-float GetEnvMapWeight(vec3 center, vec3 mins, vec3 maxs, vec3 dists)
+float GetEnvMapWeight(vec3 position, vec3 mins, vec3 maxs, vec3 dists)
 {
-    vec3 weight = min(center - mins.xyz, maxs.xyz - center) / dists;
-    return clamp(min(weight.x, min(weight.y, weight.z)), 0.0, 1.0);
+    vec3 envmapMin = position - mins;
+    vec3 envmapMax = maxs - position;
+
+    vec3 envmapClampedFadeMax = clamp(envmapMax, vec3(0.0), vec3(1.0));
+    vec3 envmapClampedFadeMin = clamp(envmapMin, vec3(0.0), vec3(1.0));
+    float distanceFromEdge = min(min3(envmapClampedFadeMin), min3(envmapClampedFadeMax)); // 21761
+
+    return distanceFromEdge;
 }
 
 vec3 GetEnvironment(vec3 N, vec3 V, float rough, vec3 specColor, vec3 irradiance, vec4 extraParams)
@@ -121,23 +128,30 @@ vec3 GetEnvironment(vec3 N, vec3 V, float rough, vec3 specColor, vec3 irradiance
         vec3 coords = R;
         vec3 mins = g_vEnvMapBoxMins.xyz;
         vec3 maxs = g_vEnvMapBoxMaxs.xyz;
-        vec3 center = g_vEnvMapPositionWs.xyz;
+        vec3 center = g_matEnvMapWorldToLocal.xyz; // TODO?
         vec3 envMap = textureLod(g_tEnvironmentMap, coords, lod).rgb;
     #elif (SCENE_ENVIRONMENT_TYPE == 2)
         vec3 envMap = vec3(0.0);
-        float totalWeight = 0.0;
+        float totalWeight = 0.001;
 
-        for (int i = 0; i < 1 && totalWeight < 0.99; i++) {
+        for (int i = 0; i < 3 && totalWeight < 0.99; i++) {
             int envMapArrayIndex = g_iEnvironmentMapArrayIndex[i];
             vec3 mins = g_vEnvMapBoxMins[envMapArrayIndex].xyz;
             vec3 maxs = g_vEnvMapBoxMaxs[envMapArrayIndex].xyz;
             vec3 dists = g_vEnvMapEdgeFadeDists[envMapArrayIndex].xyz;
-            vec4 center = g_vEnvMapPositionWs[envMapArrayIndex];
-            vec4 coords = vec4(CubeMapBoxProjection(vFragPosition, R, mins, maxs, center), envMapArrayIndex);
+            mat4x3 envMapWorldToLocal = g_matEnvMapWorldToLocal[envMapArrayIndex];
+            vec3 position = (envMapWorldToLocal * vec4(vFragPosition, 1.0)).xyz;
+            vec4 coords = vec4(CubeMapBoxProjection(position, R, mins, maxs, envMapWorldToLocal), envMapArrayIndex);
 
-            //float weight = GetEnvMapWeight(vFragPosition, mins, maxs, dists);
-            //weight = min(weight, 1.0f - totalWeight);
-            //totalWeight += weight;
+            float distanceFromEdge = GetEnvMapWeight(position, mins, maxs, dists);
+
+            if (distanceFromEdge == 0.0)
+            {
+                continue;
+            }
+
+            float weight = ((distanceFromEdge * distanceFromEdge) * (3.0 - (2.0 * distanceFromEdge))) * (1.0 - totalWeight);
+            totalWeight += weight;
 
 #if renderMode_Cubemaps == 0
             // blend
@@ -148,7 +162,7 @@ vec3 GetEnvironment(vec3 N, vec3 V, float rough, vec3 specColor, vec3 irradiance
             #endif
 #endif
 
-            envMap += textureLod(g_tEnvironmentMap, coords, lod).rgb; // * weight;
+            envMap += textureLod(g_tEnvironmentMap, coords, lod).rgb * weight;
         }
     #endif
 

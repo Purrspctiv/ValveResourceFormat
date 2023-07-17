@@ -100,10 +100,10 @@ namespace GUI.Types.Renderer
                 shader.SetUniform3("vEyePosition", cameraPosition);
                 shader.SetUniform4x4("uProjectionViewMatrix", viewProjectionMatrix);
 
-                if (context.LightingInfo?.EnvMapPositionsUniform is not null)
+                if (context.LightingInfo?.EnvMapWorldToLocalUniform is not null)
                 {
                     var count = context.LightingInfo.EnvMaps.Count;
-                    shader.SetUniform4Array("g_vEnvMapPositionWs", count, context.LightingInfo.EnvMapPositionsUniform);
+                    shader.SetUniformMatrix4x3Array("g_matEnvMapWorldToLocal", count, context.LightingInfo.EnvMapWorldToLocalUniform);
                     shader.SetUniform4Array("g_vEnvMapBoxMins", count, context.LightingInfo.EnvMapMinsUniform);
                     shader.SetUniform4Array("g_vEnvMapBoxMaxs", count, context.LightingInfo.EnvMapMaxsUniform);
                     shader.SetUniform4Array("g_vEnvMapEdgeFadeDists", count, context.LightingInfo.EnvMapEdgeFadeDists);
