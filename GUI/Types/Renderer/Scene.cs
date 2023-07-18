@@ -275,14 +275,15 @@ namespace GUI.Types.Renderer
             LightingInfo.EnvMapMaxsUniform = new float[maxEnvMapArrayIndex * 4];
             LightingInfo.EnvMapEdgeFadeDists = new float[maxEnvMapArrayIndex * 4];
 
-            foreach (var envMap in LightingInfo.EnvMaps.Values)
+            var envMaps = LightingInfo.EnvMaps.Values.OrderByDescending((envMap) => envMap.IndoorOutdoorLevel);
+
+            foreach (var envMap in envMaps)
             {
                 var nodes = StaticOctree.Query(envMap.BoundingBox);
 
                 foreach (var node in nodes)
                 {
                     node.EnvMaps.Add(envMap);
-                    //node.CubeMapPrecomputedHandshake = envMap.HandShake;
                 }
 
                 Matrix4x4.Invert(envMap.Transform, out var invertedTransform);
@@ -314,31 +315,6 @@ namespace GUI.Types.Renderer
                 LightingInfo.EnvMapEdgeFadeDists[offsetFl] = envMap.EdgeFadeDists.X;
                 LightingInfo.EnvMapEdgeFadeDists[offsetFl + 1] = envMap.EdgeFadeDists.Y;
                 LightingInfo.EnvMapEdgeFadeDists[offsetFl + 2] = envMap.EdgeFadeDists.Z;
-            }
-
-            foreach (var node in AllNodes)
-            {
-                if (!node.EnvMaps.Any())
-                {
-                    continue;
-                }
-
-                node.EnvMaps = node.EnvMaps.OrderByDescending((envMap) =>
-                {
-                    return envMap.IndoorOutdoorLevel;
-                }).ThenBy((envMap) =>
-                {
-                    return Vector3.Distance(node.BoundingBox.Center, envMap.BoundingBox.Center);
-                }).ToList();
-
-                /*
-                var envMaps = node.EnvMaps.OrderBy((envMap) =>
-                {
-                    return Vector3.Distance(node.BoundingBox.Center, envMap.BoundingBox.Center);
-                }).ToList();
-
-                node.CubeMapPrecomputedHandshake = envMaps.First().HandShake;
-                */
             }
         }
     }

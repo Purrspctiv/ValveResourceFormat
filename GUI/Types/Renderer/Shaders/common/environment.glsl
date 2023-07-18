@@ -98,8 +98,8 @@ vec3 GetEnvironment(vec3 N, vec3 V, float rough, vec3 specColor, vec3 irradiance
 
         for (int i = 0; i < MAX_ENVMAPS; i++) {
             int envMapArrayIndex = g_iEnvironmentMapArrayIndex[i];
-            vec3 envMapBoxMin = g_vEnvMapBoxMins[envMapArrayIndex].xyz;
-            vec3 envMapBoxMax = g_vEnvMapBoxMaxs[envMapArrayIndex].xyz;
+            vec3 envMapBoxMin = g_vEnvMapBoxMins[envMapArrayIndex].xyz - vec3(0.0001);
+            vec3 envMapBoxMax = g_vEnvMapBoxMaxs[envMapArrayIndex].xyz + vec3(0.0001);
             vec3 dists = g_vEnvMapEdgeFadeDists[envMapArrayIndex].xyz;
             mat4x3 envMapWorldToLocal = g_matEnvMapWorldToLocal[envMapArrayIndex];
             vec3 envMapLocalPos = envMapWorldToLocal * vec4(vFragPosition, 1.0);
@@ -134,16 +134,12 @@ vec3 GetEnvironment(vec3 N, vec3 V, float rough, vec3 specColor, vec3 irradiance
             float weight = ((distanceFromEdge * distanceFromEdge) * (3.0 - (2.0 * distanceFromEdge))) * (1.0 - totalWeight);
             totalWeight += weight;
 
-/*
-#if renderMode_Cubemaps == 0
             // blend
             #if (F_CLOTH_SHADING == 1)
                 coords.xyz = mix(coords.xyz, localReflectionVector, sqrt(rough));
             #else
                 coords.xyz = mix(coords.xyz, localReflectionVector, rough);
             #endif
-#endif
-*/
 
             envMap += textureLod(g_tEnvironmentMap, vec4(coords, envMapArrayIndex), lod).rgb * weight;
 
