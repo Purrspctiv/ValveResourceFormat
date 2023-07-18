@@ -173,7 +173,7 @@ namespace GUI.Types.Renderer
                 GL.Uniform1(uniforms.CubeMapArrayIndex, arrayIndex);
                 */
 
-                var array = request.Node.EnvMaps.Take(4).Select(x => x.ArrayIndex).ToArray();
+                var array = request.Node.EnvMaps.Select(x => x.ArrayIndex).ToArray();
 
                 GL.Uniform1(uniforms.CubeMapArrayIndex, array.Length, array);
             }
