@@ -98,8 +98,8 @@ vec3 GetEnvironment(vec3 N, vec3 V, float rough, vec3 specColor, vec3 irradiance
 
         for (int i = 0; i < MAX_ENVMAPS; i++) {
             int envMapArrayIndex = g_iEnvironmentMapArrayIndex[i];
-            vec3 envMapBoxMin = g_vEnvMapBoxMins[envMapArrayIndex].xyz - vec3(0.0001);
-            vec3 envMapBoxMax = g_vEnvMapBoxMaxs[envMapArrayIndex].xyz + vec3(0.0001);
+            vec3 envMapBoxMin = g_vEnvMapBoxMins[envMapArrayIndex].xyz - vec3(0.001);
+            vec3 envMapBoxMax = g_vEnvMapBoxMaxs[envMapArrayIndex].xyz + vec3(0.001);
             vec3 dists = g_vEnvMapEdgeFadeDists[envMapArrayIndex].xyz;
             mat4x3 envMapWorldToLocal = g_matEnvMapWorldToLocal[envMapArrayIndex];
             vec3 envMapLocalPos = envMapWorldToLocal * vec4(vFragPosition, 1.0);

@@ -275,9 +275,7 @@ namespace GUI.Types.Renderer
             LightingInfo.EnvMapMaxsUniform = new float[maxEnvMapArrayIndex * 4];
             LightingInfo.EnvMapEdgeFadeDists = new float[maxEnvMapArrayIndex * 4];
 
-            var envMaps = LightingInfo.EnvMaps.Values.OrderByDescending((envMap) => envMap.IndoorOutdoorLevel);
-
-            foreach (var envMap in envMaps)
+            foreach (var envMap in LightingInfo.EnvMaps.Values)
             {
                 var nodes = StaticOctree.Query(envMap.BoundingBox);
 
@@ -315,6 +313,14 @@ namespace GUI.Types.Renderer
                 LightingInfo.EnvMapEdgeFadeDists[offsetFl] = envMap.EdgeFadeDists.X;
                 LightingInfo.EnvMapEdgeFadeDists[offsetFl + 1] = envMap.EdgeFadeDists.Y;
                 LightingInfo.EnvMapEdgeFadeDists[offsetFl + 2] = envMap.EdgeFadeDists.Z;
+            }
+
+            foreach (var node in AllNodes)
+            {
+                node.EnvMaps = node.EnvMaps
+                    .OrderByDescending((envMap) => envMap.IndoorOutdoorLevel)
+                    .ThenBy((envMap) => Vector3.Distance(node.BoundingBox.Center, envMap.BoundingBox.Center))
+                    .ToList();
             }
         }
     }
