@@ -56,6 +56,7 @@ namespace GUI.Types.Renderer
             public int ShaderId;
             public int ShaderProgramId;
             public int CubeMapArrayIndex;
+            public int EnvMapCount;
         }
 
         /// <summary>
@@ -87,6 +88,7 @@ namespace GUI.Types.Renderer
                     TintDrawCall = shader.GetUniformLocation("m_vTintColorDrawCall"),
                     Time = shader.GetUniformLocation("g_flTime"),
                     CubeMapArrayIndex = shader.GetUniformLocation("g_iEnvironmentMapArrayIndex"),
+                    EnvMapCount = shader.GetUniformLocation("g_iEnvironmentMapCount"),
                     ObjectId = shader.GetUniformLocation("sceneObjectId"),
                     MeshId = shader.GetUniformLocation("meshId"),
                     ShaderId = shader.GetUniformLocation("shaderId"),
@@ -176,6 +178,7 @@ namespace GUI.Types.Renderer
                 var array = request.Node.EnvMaps.Select(x => x.ArrayIndex).ToArray();
 
                 GL.Uniform1(uniforms.CubeMapArrayIndex, array.Length, array);
+                GL.Uniform1(uniforms.EnvMapCount, array.Length);
             }
 
             if (uniforms.Time != 1)

@@ -284,6 +284,13 @@ namespace GUI.Types.Renderer
                     node.EnvMaps.Add(envMap);
                 }
 
+                nodes = DynamicOctree.Query(envMap.BoundingBox); // TODO: This should actually be done dynamically
+
+                foreach (var node in nodes)
+                {
+                    node.EnvMaps.Add(envMap);
+                }
+
                 Matrix4x4.Invert(envMap.Transform, out var invertedTransform);
 
                 var owl = envMap.ArrayIndex * 12;

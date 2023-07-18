@@ -17,6 +17,7 @@
     uniform vec4 g_vEnvMapBoxMaxs[MAX_ENVMAPS];
     uniform vec4 g_vEnvMapEdgeFadeDists[MAX_ENVMAPS];
     uniform int g_iEnvironmentMapArrayIndex[MAX_ENVMAPS];
+    uniform int g_iEnvironmentMapCount;
 #endif
 
 float GetEnvMapLOD(float roughness, vec3 R, vec4 extraParams)
@@ -96,7 +97,7 @@ vec3 GetEnvironment(vec3 N, vec3 V, float rough, vec3 specColor, vec3 irradiance
         vec3 envMap = vec3(0.0);
         float totalWeight = 0.01;
 
-        for (int i = 0; i < MAX_ENVMAPS; i++) {
+        for (int i = 0; i < g_iEnvironmentMapCount; i++) {
             int envMapArrayIndex = g_iEnvironmentMapArrayIndex[i];
             vec3 envMapBoxMin = g_vEnvMapBoxMins[envMapArrayIndex].xyz - vec3(0.001);
             vec3 envMapBoxMax = g_vEnvMapBoxMaxs[envMapArrayIndex].xyz + vec3(0.001);
