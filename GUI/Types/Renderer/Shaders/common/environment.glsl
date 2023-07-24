@@ -22,7 +22,9 @@
 
 float GetEnvMapLOD(float roughness, vec3 R, vec4 extraParams)
 {
-    #if F_CLOTH_SHADING == 1
+    #if renderMode_Cubemaps == 1
+        return 0;
+    #elif F_CLOTH_SHADING == 1
         float lod = mix(roughness, pow(roughness, 0.125), extraParams.b);
         return lod * MAX_ENVMAP_LOD;
     #else
@@ -80,8 +82,14 @@ vec3 GetEnvironment(MaterialProperties_t mat, LightingTerms_t lighting)
         return vec3(0.0, 0.0, 0.0);
     #else
 
+#if (renderMode_Cubemaps == 1)
+    vec3 normal = mat.GeometricNormal;
+#else
+    vec3 normal = mat.AmbientNormal;
+#endif
+
     // Reflection Vector
-    vec3 R = normalize(reflect(-mat.ViewDir, mat.AmbientNormal));
+    vec3 R = normalize(reflect(-mat.ViewDir, normal));
 
     float lod = GetEnvMapLOD(mat.Roughness, R, mat.ExtraParams);
 
@@ -133,13 +141,14 @@ vec3 GetEnvironment(MaterialProperties_t mat, LightingTerms_t lighting)
             float weight = ((distanceFromEdge * distanceFromEdge) * (3.0 - (2.0 * distanceFromEdge))) * (1.0 - totalWeight);
             totalWeight += weight;
 
-            // blend reflection vector from roughness
-            #if (F_CLOTH_SHADING == 1)
-                coords.xyz = mix(coords.xyz, localReflectionVector, sqrt(mat.Roughness));
-            #else
-                coords.xyz = mix(coords.xyz, localReflectionVector, mat.Roughness);
+            #if (renderMode_Cubemaps == 0)
+                // blend reflection vector from roughness
+                #if (F_CLOTH_SHADING == 1)
+                    coords.xyz = mix(coords.xyz, localReflectionVector, sqrt(mat.Roughness));
+                #else
+                    coords.xyz = mix(coords.xyz, localReflectionVector, mat.Roughness);
+                #endif
             #endif
-
             envMap += textureLod(g_tEnvironmentMap, vec4(coords, envMapArrayIndex), lod).rgb * weight;
 
             if (totalWeight > 0.99)
@@ -152,17 +161,17 @@ vec3 GetEnvironment(MaterialProperties_t mat, LightingTerms_t lighting)
 #if (renderMode_Cubemaps == 1)
     return envMap;
 #else
-    vec3 brdf = EnvBRDF(mat.SpecularColor, mat.Roughness, mat.AmbientNormal, mat.ViewDir);
+    vec3 brdf = EnvBRDF(mat.SpecularColor, mat.Roughness, normal, mat.ViewDir);
 
     #if (F_CLOTH_SHADING == 1)
-        vec3 clothBrdf = vec3(EnvBRDFCloth(mat.Roughness, mat.AmbientNormal, mat.ViewDir));
+        vec3 clothBrdf = vec3(EnvBRDFCloth(mat.Roughness, normal, mat.ViewDir));
 
         float clothMask = mat.ExtraParams.z;
 
         brdf = mix(brdf, clothBrdf, clothMask);
     #endif
 
-    float normalizationTerm = GetEnvMapNormalization(mat.Roughness, mat.AmbientNormal, lighting.DiffuseIndirect);
+    float normalizationTerm = GetEnvMapNormalization(mat.Roughness, normal, lighting.DiffuseIndirect);
 
     return brdf * envMap * normalizationTerm;
 #endif
