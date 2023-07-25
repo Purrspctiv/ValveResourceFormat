@@ -181,7 +181,6 @@ namespace GUI.Types.Renderer
 
         private void OnPaint(object sender, RenderEventArgs e)
         {
-            Thread.Sleep(200);
             Scene.MainCamera = e.Camera;
             Scene.Update(e.FrameTime);
 
