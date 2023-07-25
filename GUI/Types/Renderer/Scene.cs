@@ -328,17 +328,6 @@ namespace GUI.Types.Renderer
                         .ThenBy((envMap) => Vector3.Distance(lightingOrigin, envMap.BoundingBox.Center))
                         .ToList();
                 }
-
-#if DEBUG
-                if (node.CubeMapPrecomputedHandshake != 0 && node.EnvMaps.First().HandShake != node.CubeMapPrecomputedHandshake)
-                {
-                    var vrfDistance = Vector3.Distance(lightingOrigin, node.EnvMaps.First().BoundingBox.Center);
-                    var precalculatedDistance = Vector3.Distance(lightingOrigin, LightingInfo.EnvMaps[node.CubeMapPrecomputedHandshake].BoundingBox.Center);
-
-                    Console.WriteLine($"Vrf calculated envmap doesn't match with the precalculated one" +
-                        $" (dists: vrf={vrfDistance} s2={precalculatedDistance}) for node at {node.BoundingBox.Center}");
-                }
-#endif
             }
         }
     }
