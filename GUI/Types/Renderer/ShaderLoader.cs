@@ -341,10 +341,12 @@ namespace GUI.Types.Renderer
 
         public void ClearCache()
         {
+            /* Do not destroy all shaders for now because not all scene nodes reload their own shaders yet
             foreach (var shader in CachedShaders.Values)
             {
                 GL.DeleteProgram(shader.Program);
             }
+            */
 
             ShaderDefines.Clear();
             CachedShaders.Clear();
