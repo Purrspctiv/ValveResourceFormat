@@ -51,6 +51,8 @@ uniform float g_flTime;
 
 uniform vec3 vEyePosition;
 
+#include "common/fog.glsl"
+
 //Main entry point
 void main()
 {
@@ -96,6 +98,8 @@ void main()
         color.rgb * tintColor * g_flColorBoost * (vColorOut.rgb / 255.0),
         opacity
     );
+
+    ApplyFog(outputColor.rgb, vFragPosition);
 
 #if renderMode_Color == 1
     outputColor = color * mask1;

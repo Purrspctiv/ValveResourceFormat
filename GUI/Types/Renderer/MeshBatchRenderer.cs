@@ -67,7 +67,7 @@ namespace GUI.Types.Renderer
             GL.Enable(EnableCap.DepthTest);
 
             var viewProjectionMatrix = context.Camera.ViewProjectionMatrix;
-            var cameraPosition = context.Camera.Location;
+            var cameraPosition = context.Camera.Location / context.WorldScale;
             var dirLight = (context.GlobalLightTransform ?? context.Camera.CameraViewMatrix);
             var dirLightColor = context.GlobalLightColor;
 
@@ -106,6 +106,9 @@ namespace GUI.Types.Renderer
                     buffer.SetBlockBinding(shader);
                 }
 
+                context.FogInfo.SetFogUniforms(shader, context);
+                shader.SetUniform1("VRF_ENABLE_FOG", context.EnableFog ? 1 : 0);
+
                 foreach (var materialGroup in shaderGroup.GroupBy(a => a.Call.Material))
                 {
                     var material = materialGroup.Key;
@@ -114,6 +117,7 @@ namespace GUI.Types.Renderer
                     {
                         continue;
                     }
+
 
                     material.Render(shader, context.LightingInfo);
 
@@ -178,9 +182,9 @@ namespace GUI.Types.Renderer
             {
                 if (uniforms.AnimationTexture != -1)
                 {
-                    GL.ActiveTexture(TextureUnit.Texture0);
+                    GL.ActiveTexture(TextureUnit.Texture0 + (int)ReservedTextureSlots.AnimationTexture);
                     GL.BindTexture(TextureTarget.Texture2D, request.Mesh.AnimationTexture.Value);
-                    GL.Uniform1(uniforms.AnimationTexture, 0);
+                    GL.Uniform1(uniforms.AnimationTexture, (int)ReservedTextureSlots.AnimationTexture);
                 }
 
                 if (uniforms.NumBones != -1)
