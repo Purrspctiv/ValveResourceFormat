@@ -217,7 +217,7 @@ namespace GUI.Types.Renderer
             };
 
             // For SceneSky
-            viewBuffer.Data = e.Camera.SetViewConstants(viewBuffer.Data);
+            viewBuffer.Data = e.Camera.SetViewConstants(viewBuffer.Data, 1.0f);
 
             var genericRenderContext = new Scene.RenderContext
             {
@@ -233,7 +233,7 @@ namespace GUI.Types.Renderer
                 skyboxCamera.SetScaledProjectionMatrix();
                 skyboxCamera.SetLocation(e.Camera.Location - SkyboxOrigin);
 
-                viewBuffer.Data = skyboxCamera.SetViewConstants(viewBuffer.Data);
+                viewBuffer.Data = skyboxCamera.SetViewConstants(viewBuffer.Data, SkyboxScale);
                 lightingBuffer.Data = SkyboxScene.LightingInfo.LightingData;
 
                 SkyboxScene.MainCamera = skyboxCamera;
@@ -244,7 +244,7 @@ namespace GUI.Types.Renderer
             }
 
             lightingBuffer.Data = Scene.LightingInfo.LightingData;
-            viewBuffer.Data = e.Camera.SetViewConstants(viewBuffer.Data);
+            viewBuffer.Data = e.Camera.SetViewConstants(viewBuffer.Data, 1.0f);
 
             Scene.RenderWithCamera(e.Camera, bufferSet, lockedCullFrustum);
 
